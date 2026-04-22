@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "Represents a specific industry registration project.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the project/industry." },
+        "martialArts": { "type": "array", "items": { "type": "object" }, "description": "Configured martial arts." },
+        "teams": { "type": "array", "items": { "type": "string" }, "description": "Configured team names." },
+        "teamDescriptions": { "type": "object", "description": "Specific team setup/missions." },
+        "techniques": { "type": "array", "items": { "type": "object" }, "description": "Operational tips/techniques." },
+        "ownerId": { "type": "string", "description": "UID of the user who created this project." },
+        "ownerEmail": { "type": "string", "description": "Email of the owner for identification." },
+        "createdAt": { "type": "number", "description": "Timestamp of creation." },
+        "expirationDate": { "type": "number", "description": "Timestamp of project expiration." },
+        "isPremium": { "type": "boolean", "description": "Whether this project has premium features enabled." },
+        "isRestricted": { "type": "boolean", "description": "Administrative lock prevent any access." }
+      },
+      "required": ["name", "ownerId", "createdAt"]
+    },
+    "Player": {
+      "title": "Player",
+      "description": "Represents a registered player within a project.",
+      "type": "object",
+      "properties": {
+        "gameId": { "type": "string" },
+        "martialArts": { "type": "array", "items": { "type": "string" } },
+        "satAvailability": { "type": "string", "enum": ["YES", "NO", "MAYBE"] },
+        "sunAvailability": { "type": "string", "enum": ["YES", "NO", "MAYBE"] },
+        "team": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "projectId": { "type": "string" }
+      },
+      "required": ["gameId", "projectId", "createdAt"]
+    },
+    "User": {
+       "title": "User",
+       "description": "Private user profile for monetization tracking.",
+       "type": "object",
+       "properties": {
+         "email": { "type": "string" },
+         "plan": { "type": "string", "enum": ["free", "pro"] },
+         "maxProjects": { "type": "number", "description": "Maximum projects allowed for this user." },
+         "createdAt": { "type": "number" }
+       }
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Main project configuration."
+    },
+    "/projects/{projectId}/players/{playerId}": {
+      "schema": "Player",
+      "description": "Players registered in this project."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Internal user management."
+    }
+  }
+}

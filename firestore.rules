@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. User Profiles - Allow any logged-in user to manage their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && (request.auth.uid == userId || request.auth.token.email == "secert811116@gmail.com");
+    }
+
+    // 2. Projects & Players
+    match /projects/{projectId} {
+      // Public Read
+      allow read: if true;
+      
+      // Project Creation - Logged in only
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      
+      // Project Updates
+      allow update: if (
+        // A. Owner/Admin can change configuration (Owner can ALWAYS update to manage lock)
+        (request.auth != null && (resource.data.ownerId == request.auth.uid || request.auth.token.email == "secert811116@gmail.com")) ||
+        
+        // B. Public Coordination: Everyone can update playerCount IF not restricted
+        (
+          resource.data.get('isRestricted', false) == false && 
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['playerCount'])
+        )
+      );
+
+      // Project Deletion
+      allow delete: if request.auth != null && (resource.data.ownerId == request.auth.uid || request.auth.token.email == "secert811116@gmail.com");
+
+      // Players Coordination - UNRESTRICTED ACCESS FOR COORDINATION
+      match /players/{playerId} {
+        allow read: if true;
+        
+        // Coordination functions: Add/Edit/Delete
+        // Only fails if the parent project is manually restricted
+        allow write: if get(/databases/$(database)/documents/projects/$(projectId)).data.get('isRestricted', false) == false ||
+                        (request.auth != null && request.auth.token.email == "secert811116@gmail.com");
+      }
+    }
+  }
+}
