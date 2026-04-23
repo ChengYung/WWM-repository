@@ -14,6 +14,7 @@ const ProjectCard = memo(({ project, onClick, onDelete, isDeletionBlocked }: {
   onDelete: (e: React.MouseEvent) => void,
   isDeletionBlocked: boolean
 }) => {
+  const { showToast } = useToast();
   const daysLeft = project.expirationDate ? Math.ceil((project.expirationDate - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
   const isExpired = daysLeft <= 0;
   const expiryDate = project.expirationDate ? new Date(project.expirationDate) : null;
@@ -50,7 +51,20 @@ const ProjectCard = memo(({ project, onClick, onDelete, isDeletionBlocked }: {
       
       <div className="space-y-1 mb-6">
         <h4 className="font-black text-xl text-slate-100 group-hover:text-blue-400 transition-colors truncate">{project.name}</h4>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(project.id);
+              showToast('ID 已複製', 'success');
+            }}
+            className="text-[10px] text-slate-400 hover:text-blue-400 transition-colors font-bold uppercase tracking-widest px-2 py-0.5 bg-slate-900/50 rounded-md border border-slate-800/50 flex items-center gap-1.5"
+            title="點擊複製 ID"
+          >
+            <i className="fa-regular fa-copy text-[8px]"></i>
+            ID: {project.id}
+          </button>
+          <span className="w-1 h-1 rounded-full bg-slate-800"></span>
           <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">建立於 {new Date(project.createdAt).toLocaleTimeString()}</span>
           <span className="w-1 h-1 rounded-full bg-slate-800"></span>
           <span className="text-[10px] text-blue-500/70 font-black uppercase tracking-widest">{project.playerCount || 0} 人次已報名</span>
@@ -225,8 +239,8 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({ user, login, log
           <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center bg-[#0f172a] p-6 rounded-2xl border border-slate-800 shadow-xl">
               <div>
-                <h3 className="font-black text-xs text-slate-500 uppercase tracking-widest mb-1">建立新專案</h3>
-                <p className="text-[10px] text-slate-600">輸入百業名稱或期數開始。</p>
+                <h3 className="font-black text-xs text-slate-500 uppercase tracking-widest mb-1">建立新報名專案</h3>
+                <p className="text-[10px] text-slate-600">輸入百業名稱</p>
               </div>
               <form onSubmit={handleCreate} className="flex gap-2">
                 <input 
@@ -319,7 +333,7 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({ user, login, log
       </main>
 
       <footer className="p-12 text-center text-[10px] text-slate-700 font-black uppercase tracking-[0.3em]">
-        燕雲百業戰報名系統 &copy; 2026 PRO PLAN EARLY ACCESS
+        燕雲百業戰報名系統 &copy; 2026
       </footer>
 
       <ConfirmModal 

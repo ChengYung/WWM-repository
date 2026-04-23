@@ -326,6 +326,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
               <div>
                 <h1 className="text-xl font-black tracking-wider text-slate-100 uppercase">{project?.name || '報名系統'}</h1>
                 <div className="flex gap-2 items-center">
+                  <span className="text-[9px] font-mono font-bold bg-slate-900 border border-slate-700 text-slate-400 px-2 py-0.5 rounded uppercase tracking-wider">
+                    ID: {projectId}
+                  </span>
                   {project?.expirationDate && (
                     <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${daysLeft < 7 ? 'border-red-500 text-red-500 animate-pulse' : 'border-slate-700 text-slate-500'}`}>
                       {daysLeft} 天後到期

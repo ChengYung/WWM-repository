@@ -399,31 +399,50 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
                 </select>
               </div>
               <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
-                <button
-                  onClick={handleBulkAssign}
-                  disabled={selectedPlayerIds.size === 0 || isRestricted}
-                  className={`px-3 h-9 text-[10px] font-black rounded-lg transition-all ${
-                    selectedPlayerIds.size > 0 && !isRestricted
-                    ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20' 
-                    : 'bg-slate-800 text-slate-600 border border-slate-700 cursor-not-allowed'
-                  }`}
-                >
-                  指派篩選 ({selectedPlayerIds.size})
-                </button>
-                <button
-                  onClick={handleAssignUnassigned}
-                  disabled={isRestricted}
-                  className={`px-3 h-9 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  指派未選 ({unassignedCount})
-                </button>
-                <button
-                  onClick={onResetTeams}
-                  disabled={isRestricted}
-                  className={`px-3 h-9 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-black rounded-lg transition-all border border-slate-700 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  重製隊伍
-                </button>
+                <div className="relative group">
+                  <button
+                    onClick={handleBulkAssign}
+                    disabled={selectedPlayerIds.size === 0 || isRestricted}
+                    className={`px-3 h-9 w-full text-[10px] font-black rounded-lg transition-all ${
+                      selectedPlayerIds.size > 0 && !isRestricted
+                      ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20' 
+                      : 'bg-slate-800 text-slate-600 border border-slate-700 cursor-not-allowed'
+                    }`}
+                  >
+                    指派篩選 ({selectedPlayerIds.size})
+                  </button>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg text-[10px] font-bold text-slate-300 w-max invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-2xl">
+                    指派篩選: <span className="text-blue-400 mx-1">[已勾選人員]</span>指派到<span className="text-blue-400 mx-1">[{targetTeam}]</span>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0f172a]"></div>
+                  </div>
+                </div>
+
+                <div className="relative group">
+                  <button
+                    onClick={handleAssignUnassigned}
+                    disabled={isRestricted}
+                    className={`px-3 h-9 w-full bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    指派未選 ({unassignedCount})
+                  </button>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg text-[10px] font-bold text-slate-300 w-max invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-2xl">
+                    指派未選: <span className="text-emerald-400 mx-1">[候補人員]</span>指派到<span className="text-blue-400 mx-1">[{targetTeam}]</span>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0f172a]"></div>
+                  </div>
+                </div>
+                <div className="relative group">
+                  <button
+                    onClick={onResetTeams}
+                    disabled={isRestricted}
+                    className={`px-3 h-9 w-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-black rounded-lg transition-all border border-slate-700 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    重製隊伍
+                  </button>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg text-[10px] font-bold text-slate-300 w-max invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-2xl">
+                    重製隊伍: 全部人員移動到<span className="text-amber-400 mx-1">[候補]</span>, 等待重新分配
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0f172a]"></div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -449,13 +468,19 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
                   >
                     {teams.map(t => <option key={t} value={t} className="bg-slate-700 text-slate-100">{t}</option>)}
                   </select>
-                  <button
-                    onClick={handleBulkTeamMove}
-                    disabled={isRestricted}
-                    className={`px-3 h-9 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg min-w-[70px] ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    轉移整隊
-                  </button>
+                  <div className="relative group">
+                    <button
+                      onClick={handleBulkTeamMove}
+                      disabled={isRestricted}
+                      className={`px-3 h-9 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg min-w-[70px] ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      轉移整隊
+                    </button>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg text-[10px] font-bold text-slate-300 w-max invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-2xl">
+                      轉移整隊: <span className="text-amber-400 mx-1">[{bulkSource}]</span>全部移動到<span className="text-blue-400 mx-1">[{bulkTarget}]</span>
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0f172a]"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -495,22 +520,28 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
             {martialArts.map(ma => {
               const state = maStates[ma.name] || 'none';
               return (
-                <button
-                  key={ma.name}
-                  onClick={() => handleFilterToggle(ma.name)}
-                  className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all flex items-center gap-2 ${
-                    state === 'select'
-                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg'
-                    : state === 'mark'
-                    ? 'bg-blue-500/20 border-blue-500/40 text-blue-400 shadow-lg'
-                    : 'bg-[#020617] border-slate-800 text-slate-500 hover:border-slate-600'
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ma.color }}></span>
-                  {ma.name}
-                  {state === 'mark' && <i className="fa-solid fa-eye text-[8px] opacity-70"></i>}
-                  {state === 'select' && <i className="fa-solid fa-check-double text-[8px]"></i>}
-                </button>
+                <div key={ma.name} className="relative group">
+                  <button
+                    onClick={() => handleFilterToggle(ma.name)}
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all flex items-center gap-2 ${
+                      state === 'select'
+                      ? 'bg-blue-600 border-blue-500 text-white shadow-lg'
+                      : state === 'mark'
+                      ? 'bg-blue-500/20 border-blue-500/40 text-blue-400 shadow-lg'
+                      : 'bg-[#020617] border-slate-800 text-slate-500 hover:border-slate-600'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ma.color }}></span>
+                    {ma.name}
+                    {state === 'mark' && <i className="fa-solid fa-eye text-[8px] opacity-70"></i>}
+                    {state === 'select' && <i className="fa-solid fa-check-double text-[8px]"></i>}
+                  </button>
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg text-[10px] font-bold text-slate-300 w-max invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-2xl">
+                    武學篩選標記: 點選1次<span className="text-amber-400 mx-1">[標記]</span>,點選2次<span className="text-blue-400 mx-1">[選取]</span>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0f172a]"></div>
+                  </div>
+                </div>
               );
             })}
           </div>
