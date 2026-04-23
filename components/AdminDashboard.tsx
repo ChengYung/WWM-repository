@@ -9,6 +9,7 @@ export const AdminDashboard: React.FC<{ user: any }> = ({ user }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -33,7 +34,13 @@ export const AdminDashboard: React.FC<{ user: any }> = ({ user }) => {
           ProjectService.getAllUsers(),
           ProjectService.getAllProjects()
         ]);
-        setUsers(uData);
+        
+        // Auto-filter: Only keep users that have projects
+        const usersWithProjects = uData.filter(u => 
+          pData.some(p => p.ownerId === u.uid)
+        );
+        
+        setUsers(usersWithProjects);
         setProjects(pData);
       } catch (err) {
         console.error(err);
@@ -139,13 +146,26 @@ export const AdminDashboard: React.FC<{ user: any }> = ({ user }) => {
           </div>
         ) : (
           <div className="space-y-6 md:space-y-8">
-            <div className="flex items-center gap-4 text-slate-400 font-black uppercase tracking-widest text-[10px] md:text-xs px-2">
-              <i className="fa-solid fa-users-viewfinder"></i>
-              全系統概況: {users.length} 位用戶 / {projects.length} 個專案
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+              <div className="flex items-center gap-4 text-slate-400 font-black uppercase tracking-widest text-[10px] md:text-xs">
+                <i className="fa-solid fa-users-viewfinder"></i>
+                全系統概況: {users.length} 位活躍用戶 / {projects.length} 個專案
+              </div>
+
+              <div className="relative w-full md:w-80">
+                <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                <input 
+                  type="text"
+                  placeholder="搜尋用戶 Email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-[#0f172a] border border-slate-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-slate-600 focus:ring-1 ring-blue-500 outline-none transition-all shadow-inner"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-6">
-              {users.map(u => {
+              {users.filter(u => u.email?.toLowerCase().includes(searchTerm.toLowerCase())).map(u => {
                 const userProjects = projects.filter(p => p.ownerId === u.uid);
                 return (
                   <div key={u.uid} className="bg-[#0f172a] rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
