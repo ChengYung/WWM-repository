@@ -350,12 +350,13 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
 
              <button 
                 onClick={() => {
-                   const shareUrl = window.location.origin + window.location.pathname;
+                   const productionBase = 'https://wwm-repository.vercel.app';
+                   const shareUrl = `${productionBase}/project/${projectId}`;
                    const projectName = project?.name || '百業戰報名';
                    const textToCopy = `【${projectName}】報名協作連結：\n${shareUrl}\n\n專案代碼：${projectId}`;
                    
                    navigator.clipboard.writeText(textToCopy);
-                   showToast('報名連結與代碼已複製', 'success');
+                   showToast('正式版報名連結已複製', 'success');
                 }}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-slate-700 text-slate-100"
              >
