@@ -16,6 +16,10 @@ export interface Player {
   team: string;
   createdAt: number;
   projectId: string;
+  power?: string;
+  noSelf?: boolean;
+  hasDc?: boolean;
+  canMic?: boolean;
 }
 
 export interface TeamConfig {

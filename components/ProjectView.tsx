@@ -420,6 +420,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
               teams={teams}
               availabilityOptions={AVAILABILITY_OPTIONS}
               isRestricted={isRestricted && !isAdmin}
+              projectName={project?.name}
             />
           )}
           {activeTab === 2 && (

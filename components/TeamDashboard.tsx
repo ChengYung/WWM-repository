@@ -19,10 +19,13 @@ interface TeamCardProps {
   sessionFilter: 'SAT' | 'SUN' | null;
   getMaGroupPriority: (maKey: string) => number;
   isRestricted?: boolean;
+  filterNoSelf?: boolean;
+  filterDc?: boolean;
+  filterMic?: boolean;
 }
 
 const TeamCard = memo(({
-  teamName, config, teamData, editingMissionTeam, setEditingMissionTeam, onUpdateDescription, onMovePlayer, selectedPlayerIds, toggleSelect, onDragStart, onDrop, maFilter, sessionFilter, getMaGroupPriority, isRestricted
+  teamName, config, teamData, editingMissionTeam, setEditingMissionTeam, onUpdateDescription, onMovePlayer, selectedPlayerIds, toggleSelect, onDragStart, onDrop, maFilter, sessionFilter, getMaGroupPriority, isRestricted, filterNoSelf, filterDc, filterMic
 }: TeamCardProps) => {
   const activePlayers = Object.values(teamData.active).flat();
   const inactivePlayers = Object.values(teamData.inactive).flat();
@@ -62,7 +65,10 @@ const TeamCard = memo(({
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {members.map(p => {
-                  const isFiltered = maFilter.length > 0 && p.martialArts.some(ma => maFilter.includes(ma));
+                  const isFiltered = (maFilter.length > 0 && p.martialArts.some(ma => maFilter.includes(ma))) ||
+                                     (filterNoSelf && p.noSelf) ||
+                                     (filterDc && p.hasDc) ||
+                                     (filterMic && p.canMic);
                   return (
                     <div
                       key={p.id}
@@ -185,6 +191,17 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   const [bulkTarget, setBulkTarget] = useState(teams[0]);
   const [targetTeam, setTargetTeam] = useState(teams[0]);
   const [sessionFilter, setSessionFilter] = useState<'SAT' | 'SUN' | null>(null);
+
+  const [filterNoSelf, setFilterNoSelf] = useState(false);
+  const [filterDc, setFilterDc] = useState(false);
+  const [filterMic, setFilterMic] = useState(false);
+
+  const [showSmartAssign, setShowSmartAssign] = useState(false);
+  const [smartMaCounts, setSmartMaCounts] = useState<Record<string, number>>({});
+  const [prioritizePower, setPrioritizePower] = useState(true);
+  const [prioritizeNoSelf, setPrioritizeNoSelf] = useState(false);
+  const [prioritizeDc, setPrioritizeDc] = useState(false);
+  const [prioritizeMic, setPrioritizeMic] = useState(false);
   
   const {
     maFilter,
@@ -204,6 +221,94 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
     getMatchingPlayerIds,
     getDeselectPlayerIds
   } = useMartialArtsFilter(players, teams);
+
+  useEffect(() => {
+    if (martialArts && Object.keys(smartMaCounts).length === 0) {
+      const init: Record<string, number> = {};
+      martialArts.forEach(ma => {
+        init[ma.name] = 0;
+      });
+      setSmartMaCounts(init);
+    }
+  }, [martialArts, smartMaCounts]);
+
+  const parsePower = (powerStr?: string): number => {
+    if (!powerStr) return 0;
+    const match = powerStr.match(/([0-9.]+)/);
+    return match ? parseFloat(match[1]) : 0;
+  };
+
+  const handleRunSmartAssign = useCallback(() => {
+    if (players.length === 0) return;
+
+    const firstTeamName = teams.find(t => t.includes('一隊') || t.includes('防守') || t.includes('進攻')) || teams[0] || '第一隊:進攻';
+
+    const candidates = [...players];
+    candidates.sort((a, b) => {
+      if (prioritizeNoSelf) {
+        const nsA = a.noSelf ? 1 : 0;
+        const nsB = b.noSelf ? 1 : 0;
+        if (nsA !== nsB) return nsB - nsA;
+      }
+      if (prioritizeDc) {
+        const dcA = a.hasDc ? 1 : 0;
+        const dcB = b.hasDc ? 1 : 0;
+        if (dcA !== dcB) return dcB - dcA;
+      }
+      if (prioritizeMic) {
+        const micA = a.canMic ? 1 : 0;
+        const micB = b.canMic ? 1 : 0;
+        if (micA !== micB) return micB - micA;
+      }
+      if (prioritizePower) {
+        const pA = parsePower(a.power);
+        const pB = parsePower(b.power);
+        if (pA !== pB) return pB - pA;
+      }
+      return b.createdAt - a.createdAt;
+    });
+
+    const remainingSlots: Record<string, number> = {};
+    martialArts.forEach(ma => {
+      const count = smartMaCounts[ma.name];
+      remainingSlots[ma.name] = (count !== undefined && count !== null) ? count : 0;
+    });
+
+    const selectedIds = new Set<string>();
+
+    for (const p of candidates) {
+      const matchingMa = p.martialArts.find(maName => remainingSlots[maName] > 0);
+      if (matchingMa) {
+        selectedIds.add(p.id);
+        remainingSlots[matchingMa]--;
+      }
+    }
+
+    const updates = players.map(p => ({
+      id: p.id,
+      team: selectedIds.has(p.id) ? firstTeamName : '候補'
+    }));
+
+    onUpdatePlayers(updates);
+    setShowSmartAssign(false);
+  }, [players, teams, martialArts, smartMaCounts, prioritizePower, prioritizeNoSelf, prioritizeDc, prioritizeMic, onUpdatePlayers]);
+
+  const displayedFilteredPlayers = useMemo(() => {
+    let list = filteredPlayers;
+    if (maFilter.length === 0 && (filterNoSelf || filterDc || filterMic)) {
+      list = players;
+    }
+    if (filterNoSelf) {
+      list = list.filter(p => p.noSelf === true);
+    }
+    if (filterDc) {
+      list = list.filter(p => p.hasDc === true);
+    }
+    if (filterMic) {
+      list = list.filter(p => p.canMic === true);
+    }
+    return list;
+  }, [filteredPlayers, players, maFilter, filterNoSelf, filterDc, filterMic]);
 
   const groupedPlayers = useMemo(() => {
     const groups: Record<string, { active: Record<string, Player[]>, inactive: Record<string, Player[]> }> = {};
@@ -484,8 +589,118 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Smart Team Selection Button Trigger */}
+            <div className="flex flex-col sm:flex-row items-end gap-4 bg-[#020617] p-4 rounded-2xl border border-slate-800">
+              <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+                <span className="text-[10px] font-black text-purple-400 uppercase tracking-tighter leading-none">智慧分配</span>
+                <button
+                  onClick={() => setShowSmartAssign(!showSmartAssign)}
+                  className={`px-4 h-9 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg flex items-center justify-center gap-1.5 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <i className="fa-solid fa-brain"></i>
+                  智慧選隊
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Smart Team Assignment configs Drawer */}
+        {showSmartAssign && (
+          <div className="mt-4 p-5 bg-[#020617] rounded-3xl border border-slate-800 space-y-4 animate-in slide-in-from-top-4 duration-300">
+            <h4 className="text-xs font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
+              <i className="fa-solid fa-gears text-purple-500"></i> 智慧選隊配置
+            </h4>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-400">各武學配置人數 (留空或 0 代表不限制)</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {martialArts.map(ma => (
+                  <div key={ma.name} className="flex items-center justify-between gap-2 p-2 bg-[#0f172a] rounded-xl border border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-300 truncate flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ma.color }}></span>
+                      {ma.name}
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={smartMaCounts[ma.name] === undefined ? '' : smartMaCounts[ma.name]}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? '' : parseInt(e.target.value) || 0;
+                        setSmartMaCounts(prev => ({ ...prev, [ma.name]: val === '' ? 0 : val }));
+                      }}
+                      className="w-12 p-1 text-center bg-[#020617] border border-[#1e293b] text-[10px] font-black text-white rounded-lg outline-none focus:border-purple-500"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
+                <input
+                  type="checkbox"
+                  checked={prioritizePower}
+                  onChange={(e) => setPrioritizePower(e.target.checked)}
+                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-solid fa-bolt text-yellow-500"></i> 優先安排戰力指數高
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
+                <input
+                  type="checkbox"
+                  checked={prioritizeNoSelf}
+                  onChange={(e) => setPrioritizeNoSelf(e.target.checked)}
+                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-solid fa-peace text-yellow-500"></i> 優先安排無我 (No Self)
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
+                <input
+                  type="checkbox"
+                  checked={prioritizeDc}
+                  onChange={(e) => setPrioritizeDc(e.target.checked)}
+                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-brands fa-discord text-indigo-400"></i> 優先安排有 DC
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
+                <input
+                  type="checkbox"
+                  checked={prioritizeMic}
+                  onChange={(e) => setPrioritizeMic(e.target.checked)}
+                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-solid fa-microphone text-green-400"></i> 優先安排可開 Mic
+                </span>
+              </label>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
+              <span className="text-[10px] text-slate-500">
+                符合各選取條件的玩家將被指派分配到 <span className="text-purple-400 font-bold">第一隊:進攻</span>，其餘未入選者歸類到 <span className="text-yellow-500 font-bold">候補</span> 隊伍。
+              </span>
+              <button
+                disabled={isRestricted}
+                onClick={handleRunSmartAssign}
+                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-[11px] rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all disabled:opacity-55"
+              >
+                執行智慧選隊
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Martial Arts Filter Section */}
         <div className="flex flex-col gap-4 w-full border-t border-slate-800 pt-6">
@@ -545,6 +760,44 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
               );
             })}
           </div>
+
+          <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-slate-800/20">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={filterNoSelf}
+                onChange={(e) => setFilterNoSelf(e.target.checked)}
+                className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-blue-500 focus:ring-blue-500/50 cursor-pointer"
+              />
+              <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                <i className="fa-solid fa-peace text-yellow-500"></i> 無我
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={filterDc}
+                onChange={(e) => setFilterDc(e.target.checked)}
+                className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-blue-500 focus:ring-blue-500/50 cursor-pointer"
+              />
+              <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                <i className="fa-brands fa-discord text-indigo-400"></i> 有 DC
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={filterMic}
+                onChange={(e) => setFilterMic(e.target.checked)}
+                className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-blue-500 focus:ring-blue-500/50 cursor-pointer"
+              />
+              <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                <i className="fa-solid fa-microphone text-green-400"></i> 可開 Mic
+              </span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -575,10 +828,10 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
                 </button>
               </div>
               <div className="max-h-80 overflow-y-auto p-2 space-y-1">
-                {filteredPlayers.length === 0 ? (
+                {displayedFilteredPlayers.length === 0 ? (
                   <div className="p-4 text-center text-[10px] text-slate-500 dark:text-slate-600 font-bold italic">無相符人員</div>
                 ) : (
-                  filteredPlayers.map(p => (
+                  displayedFilteredPlayers.map(p => (
                     <button
                       key={p.id}
                       onClick={() => scrollToPlayer(p.id)}
@@ -632,6 +885,9 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
               maFilter={maFilter}
               sessionFilter={sessionFilter}
               getMaGroupPriority={getMaGroupPriority}
+              filterNoSelf={filterNoSelf}
+              filterDc={filterDc}
+              filterMic={filterMic}
             />
           );
         })}

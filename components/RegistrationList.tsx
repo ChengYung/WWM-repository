@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react';
+import * as XLSX from 'xlsx';
 import { Player, MartialArts, Availability } from '../types';
 import { useMartialArtsFilter } from '../hooks/useMartialArtsFilter';
 
@@ -101,6 +102,70 @@ const PlayerRow = memo(({
               )}
           </div>
         </div>
+      </td>
+      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+        {isEditing ? (
+          <input
+            className="bg-[#1e293b] border border-blue-500/50 rounded px-2 py-1 text-sm font-black text-white w-20 text-center outline-none mx-auto block"
+            value={player.power || ''}
+            onChange={(e) => onEdit({ ...player, power: e.target.value })}
+            placeholder="e.g. 3.0"
+          />
+        ) : (
+          <span className="text-sm font-bold text-slate-350 flex justify-center">{player.power || '-'}</span>
+        )}
+      </td>
+      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+        {isEditing ? (
+          <div className="flex items-center justify-center gap-1.5">
+            <button
+              onClick={() => onEdit({ ...player, noSelf: !player.noSelf })}
+              className={`w-6 h-6 rounded flex items-center justify-center text-[10px] transition-all border ${
+                player.noSelf ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400 font-bold' : 'bg-slate-800 border-slate-700 text-slate-600'
+              }`}
+              title="無我"
+            >
+              <i className="fa-solid fa-peace text-[9px]"></i>
+            </button>
+            <button
+              onClick={() => onEdit({ ...player, hasDc: !player.hasDc })}
+              className={`w-6 h-6 rounded flex items-center justify-center text-[10px] transition-all border ${
+                player.hasDc ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400 font-bold' : 'bg-slate-800 border-slate-700 text-slate-600'
+              }`}
+              title="DC"
+            >
+              <i className="fa-brands fa-discord text-[9px]"></i>
+            </button>
+            <button
+              onClick={() => onEdit({ ...player, canMic: !player.canMic })}
+              className={`w-6 h-6 rounded flex items-center justify-center text-[10px] transition-all border ${
+                player.canMic ? 'bg-green-500/20 border-green-500 text-green-400 font-bold' : 'bg-slate-800 border-slate-700 text-slate-600'
+              }`}
+              title="開Mic"
+            >
+              <i className="fa-solid fa-microphone text-[9px]"></i>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-1">
+            {player.noSelf && (
+              <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/30 text-[9px] font-black text-yellow-500" title="無我">
+                無我
+              </span>
+            )}
+            {player.hasDc && (
+              <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/30 text-[9px] font-black text-indigo-400" title="DC">
+                DC
+              </span>
+            )}
+            {player.canMic && (
+              <span className="px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/30 text-[9px] font-black text-green-400" title="可開Mic">
+                開Mic
+              </span>
+            )}
+            {!player.noSelf && !player.hasDc && !player.canMic && <span className="text-slate-600 font-bold">-</span>}
+          </div>
+        )}
       </td>
       <td className="p-4 hidden md:table-cell">
         <div className="flex flex-wrap gap-1">
@@ -241,6 +306,7 @@ interface RegistrationListProps {
   teams: string[];
   availabilityOptions: Availability[];
   isRestricted?: boolean;
+  projectName?: string;
 }
 
 export const RegistrationList: React.FC<RegistrationListProps> = ({
@@ -254,7 +320,8 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
   martialArts,
   teams,
   availabilityOptions,
-  isRestricted
+  isRestricted,
+  projectName
 }) => {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
   const [targetTeam, setTargetTeam] = useState(teams[0]);
@@ -262,6 +329,19 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
   const [bulkTarget, setBulkTarget] = useState(teams[0]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBuffer, setEditBuffer] = useState<Player | null>(null);
+
+  const [filterNoSelf, setFilterNoSelf] = useState(false);
+  const [filterDc, setFilterDc] = useState(false);
+  const [filterMic, setFilterMic] = useState(false);
+
+  const [powerSort, setPowerSort] = useState<'none' | 'desc' | 'asc'>('none');
+
+  const [showSmartAssign, setShowSmartAssign] = useState(false);
+  const [smartMaCounts, setSmartMaCounts] = useState<Record<string, number>>({});
+  const [prioritizePower, setPrioritizePower] = useState(true);
+  const [prioritizeNoSelf, setPrioritizeNoSelf] = useState(false);
+  const [prioritizeDc, setPrioritizeDc] = useState(false);
+  const [prioritizeMic, setPrioritizeMic] = useState(false);
   
   const {
     maFilter,
@@ -282,6 +362,136 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
     getMatchingPlayerIds,
     getDeselectPlayerIds
   } = useMartialArtsFilter(players, teams);
+
+  useEffect(() => {
+    if (martialArts && Object.keys(smartMaCounts).length === 0) {
+      const init: Record<string, number> = {};
+      martialArts.forEach(ma => {
+        init[ma.name] = 0;
+      });
+      setSmartMaCounts(init);
+    }
+  }, [martialArts, smartMaCounts]);
+
+  const parsePower = (powerStr?: string): number => {
+    if (!powerStr) return 0;
+    const match = powerStr.match(/([0-9.]+)/);
+    return match ? parseFloat(match[1]) : 0;
+  };
+
+  const displayedPlayers = useMemo(() => {
+    let list = sortedPlayers;
+    if (filterNoSelf) {
+      list = list.filter(p => p.noSelf === true);
+    }
+    if (filterDc) {
+      list = list.filter(p => p.hasDc === true);
+    }
+    if (filterMic) {
+      list = list.filter(p => p.canMic === true);
+    }
+    
+    if (powerSort !== 'none') {
+      list = [...list].sort((a, b) => {
+        const pa = parsePower(a.power);
+        const pb = parsePower(b.power);
+        return powerSort === 'desc' ? pb - pa : pa - pb;
+      });
+    }
+    return list;
+  }, [sortedPlayers, filterNoSelf, filterDc, filterMic, powerSort]);
+
+  const displayedFilteredPlayers = useMemo(() => {
+    let list = filteredPlayers;
+    if (maFilter.length === 0 && (filterNoSelf || filterDc || filterMic)) {
+      list = players;
+    }
+    if (filterNoSelf) {
+      list = list.filter(p => p.noSelf === true);
+    }
+    if (filterDc) {
+      list = list.filter(p => p.hasDc === true);
+    }
+    if (filterMic) {
+      list = list.filter(p => p.canMic === true);
+    }
+    return list;
+  }, [filteredPlayers, players, maFilter, filterNoSelf, filterDc, filterMic]);
+
+  const handleRunSmartAssign = useCallback(() => {
+    if (players.length === 0) return;
+
+    const firstTeamName = teams.find(t => t.includes('一隊') || t.includes('防守') || t.includes('進攻')) || teams[0] || '第一隊:進攻';
+
+    const candidates = [...players];
+    candidates.sort((a, b) => {
+      if (prioritizeNoSelf) {
+        const nsA = a.noSelf ? 1 : 0;
+        const nsB = b.noSelf ? 1 : 0;
+        if (nsA !== nsB) return nsB - nsA;
+      }
+      if (prioritizeDc) {
+        const dcA = a.hasDc ? 1 : 0;
+        const dcB = b.hasDc ? 1 : 0;
+        if (dcA !== dcB) return dcB - dcA;
+      }
+      if (prioritizeMic) {
+        const micA = a.canMic ? 1 : 0;
+        const micB = b.canMic ? 1 : 0;
+        if (micA !== micB) return micB - micA;
+      }
+      if (prioritizePower) {
+        const pA = parsePower(a.power);
+        const pB = parsePower(b.power);
+        if (pA !== pB) return pB - pA;
+      }
+      return b.createdAt - a.createdAt;
+    });
+
+    const remainingSlots: Record<string, number> = {};
+    martialArts.forEach(ma => {
+      const count = smartMaCounts[ma.name];
+      remainingSlots[ma.name] = (count !== undefined && count !== null) ? count : 0;
+    });
+
+    const selectedIds = new Set<string>();
+
+    for (const p of candidates) {
+      const matchingMa = p.martialArts.find(maName => remainingSlots[maName] > 0);
+      if (matchingMa) {
+        selectedIds.add(p.id);
+        remainingSlots[matchingMa]--;
+      }
+    }
+
+    const updates = players.map(p => ({
+      id: p.id,
+      team: selectedIds.has(p.id) ? firstTeamName : '候補'
+    }));
+
+    onUpdatePlayers(updates);
+    setShowSmartAssign(false);
+  }, [players, teams, martialArts, smartMaCounts, prioritizePower, prioritizeNoSelf, prioritizeDc, prioritizeMic, onUpdatePlayers]);
+
+  const handleExportExcel = useCallback(() => {
+    const data = players.map(p => ({
+      '遊戲名稱': p.gameId,
+      '戰力指數': p.power || '',
+      '代表武學': p.martialArts.join('、'),
+      '週六出席': p.satAvailability === 'YES' ? '參加' : '無',
+      '週日出席': p.sunAvailability === 'YES' ? '參加' : '無',
+      '分配隊伍': p.team,
+      '是否無我': p.noSelf ? '是' : '否',
+      '是否有 DC': p.hasDc ? '是' : '否',
+      '是否可開麥': p.canMic ? '是' : '否',
+      '備註說明': p.notes || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, '報名名單');
+    XLSX.writeFile(workbook, `${projectName || '武林'}報名表.xlsx`);
+  }, [players, projectName]);
 
   const stats = useMemo(() => {
     const total = players.length;
@@ -480,6 +690,44 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
                 );
               })}
             </div>
+
+            <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-slate-800/20">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={filterNoSelf}
+                  onChange={(e) => setFilterNoSelf(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-blue-500 focus:ring-blue-500/50 cursor-pointer"
+                />
+                <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-solid fa-peace text-yellow-500"></i> 無我
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={filterDc}
+                  onChange={(e) => setFilterDc(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-blue-500 focus:ring-blue-500/50 cursor-pointer"
+                />
+                <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-brands fa-discord text-indigo-400"></i> 有 DC
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={filterMic}
+                  onChange={(e) => setFilterMic(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-blue-500 focus:ring-blue-500/50 cursor-pointer"
+                />
+                <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-solid fa-microphone text-green-400"></i> 可開 Mic
+                </span>
+              </label>
+            </div>
           </div>
 
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 w-full xl:w-auto">
@@ -582,16 +830,132 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Smart Allocation Trigger */}
+            <div className="flex flex-col sm:flex-row items-end gap-4 bg-[#020617] p-4 rounded-2xl border border-slate-800">
+              <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+                <span className="text-[10px] font-black text-purple-400 uppercase tracking-tighter leading-none">智慧分配</span>
+                <button
+                  onClick={() => setShowSmartAssign(!showSmartAssign)}
+                  className={`px-4 h-9 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg flex items-center justify-center gap-1.5 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <i className="fa-solid fa-brain"></i>
+                  智慧選隊
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-800/50">
-            {!isRestricted && (
-              <button onClick={onClearPlayers} className="text-[10px] font-black text-red-500/70 hover:text-red-500 uppercase tracking-widest transition-colors flex items-center gap-2">
-                  <i className="fa-solid fa-trash-can"></i> 清除整張名單
+        {/* Smart Assignment configs Drawer */}
+        {showSmartAssign && (
+          <div className="mt-4 p-5 bg-[#020617] rounded-3xl border border-slate-800 space-y-4 animate-in slide-in-from-top-4 duration-300">
+            <h4 className="text-xs font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
+              <i className="fa-solid fa-gears text-purple-500"></i> 智慧選隊配置
+            </h4>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-400">各武學配置人數 (留空或 0 代表不限制)</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {martialArts.map(ma => (
+                  <div key={ma.name} className="flex items-center justify-between gap-2 p-2 bg-[#0f172a] rounded-xl border border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-300 truncate flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ma.color }}></span>
+                      {ma.name}
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={smartMaCounts[ma.name] === undefined ? '' : smartMaCounts[ma.name]}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? '' : parseInt(e.target.value) || 0;
+                        setSmartMaCounts(prev => ({ ...prev, [ma.name]: val === '' ? 0 : val }));
+                      }}
+                      className="w-12 p-1 text-center bg-[#020617] border border-[#1e293b] text-[10px] font-black text-white rounded-lg outline-none focus:border-purple-500"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
+                <input
+                  type="checkbox"
+                  checked={prioritizePower}
+                  onChange={(e) => setPrioritizePower(e.target.checked)}
+                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-solid fa-bolt text-yellow-500"></i> 優先安排戰力指數高
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
+                <input
+                  type="checkbox"
+                  checked={prioritizeNoSelf}
+                  onChange={(e) => setPrioritizeNoSelf(e.target.checked)}
+                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-solid fa-peace text-yellow-500"></i> 優先安排無我 (No Self)
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
+                <input
+                  type="checkbox"
+                  checked={prioritizeDc}
+                  onChange={(e) => setPrioritizeDc(e.target.checked)}
+                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-brands fa-discord text-indigo-400"></i> 優先安排有 DC
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
+                <input
+                  type="checkbox"
+                  checked={prioritizeMic}
+                  onChange={(e) => setPrioritizeMic(e.target.checked)}
+                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <i className="fa-solid fa-microphone text-green-400"></i> 優先安排可開 Mic
+                </span>
+              </label>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
+              <span className="text-[10px] text-slate-500">
+                符合各選取條件的玩家將被指派分配到 <span className="text-purple-400 font-bold">第一隊:進攻</span>，其餘未入選者歸類到 <span className="text-yellow-500 font-bold">候補</span> 隊伍。
+              </span>
+              <button
+                disabled={isRestricted}
+                onClick={handleRunSmartAssign}
+                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-[11px] rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all disabled:opacity-55"
+              >
+                執行智慧選隊
               </button>
-            )}
-        </div>
+            </div>
+          </div>
+        )}
+
+      <div className="flex justify-between items-center pt-4 border-t border-slate-800/50">
+          <button 
+            onClick={handleExportExcel}
+            className="text-[10px] font-black text-emerald-400 hover:text-emerald-350 uppercase tracking-widest transition-colors flex items-center gap-2"
+          >
+            <i className="fa-solid fa-file-excel"></i> 匯出報名名單 (.xlsx)
+          </button>
+          {!isRestricted && (
+            <button onClick={onClearPlayers} className="text-[10px] font-black text-red-500/70 hover:text-red-500 uppercase tracking-widest transition-colors flex items-center gap-2">
+                <i className="fa-solid fa-trash-can"></i> 清除整張名單
+            </button>
+          )}
+      </div>
 
         {/* Draggable Summary Popup */}
         {showSummary && maFilter.length > 0 && (
@@ -620,10 +984,10 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
               </button>
             </div>
             <div className="max-h-80 overflow-y-auto p-2 space-y-1">
-              {filteredPlayers.length === 0 ? (
+              {displayedFilteredPlayers.length === 0 ? (
                 <div className="p-4 text-center text-[10px] text-slate-500 dark:text-slate-600 font-bold italic">無相符人員</div>
               ) : (
-                filteredPlayers.map(p => (
+                displayedFilteredPlayers.map(p => (
                   <button
                     key={p.id}
                     onClick={() => scrollToPlayer(p.id)}
@@ -673,6 +1037,20 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
                   />
                 </th>
                 <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">遊戲名稱</th>
+                <th 
+                  onClick={() => {
+                    setPowerSort(prev => prev === 'none' ? 'desc' : prev === 'desc' ? 'asc' : 'none');
+                  }}
+                  className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center cursor-pointer hover:text-blue-400 transition-colors selection:bg-transparent"
+                >
+                  <span className="flex items-center justify-center gap-1.5 mx-auto w-max">
+                    戰力指數
+                    {powerSort === 'none' && <i className="fa-solid fa-sort opacity-50 text-[9px]"></i>}
+                    {powerSort === 'desc' && <i className="fa-solid fa-sort-down text-blue-500 text-[10px]"></i>}
+                    {powerSort === 'asc' && <i className="fa-solid fa-sort-up text-blue-500 text-[10px]"></i>}
+                  </span>
+                </th>
+                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">狀態限制</th>
                 <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left hidden md:table-cell">武學</th>
                 <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">出席</th>
                 <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">隊伍</th>
@@ -681,14 +1059,14 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
-              {sortedPlayers.length === 0 ? (
+              {displayedPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-16 text-center text-slate-600 font-bold italic tracking-widest">
+                  <td colSpan={9} className="p-16 text-center text-slate-600 font-bold italic tracking-widest">
                     SYSTEM: NO REGISTRATIONS FOUND
                   </td>
                 </tr>
               ) : (
-                sortedPlayers.map((player) => {
+                displayedPlayers.map((player) => {
                   const isEditing = editingId === player.id;
                   const isNew = player.id === lastAddedPlayerId;
                   const isFiltered = maFilter.length > 0 && player.martialArts.some(ma => maFilter.includes(ma));

@@ -25,6 +25,10 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
   const [sat, setSat] = useState<Availability>('YES');
   const [sun, setSun] = useState<Availability>('YES');
   const [notes, setNotes] = useState('');
+  const [power, setPower] = useState('');
+  const [noSelf, setNoSelf] = useState(false);
+  const [hasDc, setHasDc] = useState(false);
+  const [canMic, setCanMic] = useState(false);
   const { showToast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -37,7 +41,6 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
       showToast('請填入遊戲名稱', 'error');
       return;
     }
-    // ... rest of logic
 
     // 檢查重複報名 (增加更嚴謹的過濾與字串處理)
     const normalizedNewId = gameId.trim().toLowerCase();
@@ -61,11 +64,19 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
       satAvailability: sat,
       sunAvailability: sun,
       notes,
-      team: '候補'
+      team: '候補',
+      power: power.trim() || undefined,
+      noSelf,
+      hasDc,
+      canMic
     });
     setGameId('');
     setSelectedMAs([]);
     setNotes('');
+    setPower('');
+    setNoSelf(false);
+    setHasDc(false);
+    setCanMic(false);
   };
 
   const toggleMA = (name: string) => {
@@ -97,9 +108,21 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
             />
           </div>
 
-          <div className="lg:col-span-9 space-y-2">
+          <div className="lg:col-span-3 space-y-2">
+            <label className="text-sm font-bold text-slate-400">戰力指數 (選填)</label>
+            <input
+              type="text"
+              value={power}
+              onChange={(e) => setPower(e.target.value)}
+              disabled={isRestricted}
+              placeholder={isRestricted ? "此專案已鎖定" : "例如: 3.093鵝"}
+              className={`w-full p-2.5 bg-[#020617] text-slate-100 font-bold rounded-lg border border-slate-700 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+            />
+          </div>
+
+          <div className="lg:col-span-6 space-y-2">
             <label className="text-sm font-bold text-slate-400">武學選擇 (可多選)</label>
-            <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 bg-[#020617] p-3 rounded-xl border border-slate-800 max-h-[160px] overflow-y-auto ${isRestricted ? 'opacity-50 grayscale' : ''}`}>
+            <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 bg-[#020617] p-3 rounded-xl border border-slate-800 max-h-[160px] overflow-y-auto ${isRestricted ? 'opacity-50 grayscale' : ''}`}>
               {martialArts.map(ma => (
                 <label 
                   key={ma.name} 
@@ -170,6 +193,53 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
               disabled={isRestricted}
               className={`w-full p-2.5 bg-[#020617] text-slate-100 font-bold rounded-lg border border-slate-700 outline-none focus:ring-4 focus:ring-blue-500/20 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
+          </div>
+
+          <div className="lg:col-span-12 space-y-2">
+            <label className="text-sm font-bold text-slate-400">通訊與狀態設定</label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#020617] p-4 rounded-xl border border-slate-800">
+              <label className="flex items-center gap-3 p-3 bg-[#0f172a] hover:bg-slate-800/30 rounded-xl cursor-pointer transition-all border border-slate-800">
+                <input
+                  type="checkbox"
+                  checked={noSelf}
+                  onChange={(e) => setNoSelf(e.target.checked)}
+                  disabled={isRestricted}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5 selection:bg-transparent">
+                  <i className="fa-solid fa-peace text-yellow-500 text-sm"></i>
+                  是否無我 (勾選為無我)
+                </span>
+              </label>
+
+              <label className="flex items-center gap-3 p-3 bg-[#0f172a] hover:bg-slate-800/30 rounded-xl cursor-pointer transition-all border border-slate-800">
+                <input
+                  type="checkbox"
+                  checked={hasDc}
+                  onChange={(e) => setHasDc(e.target.checked)}
+                  disabled={isRestricted}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5 selection:bg-transparent">
+                  <i className="fa-brands fa-discord text-indigo-400 text-sm"></i>
+                  是否有 Discord (DC)
+                </span>
+              </label>
+
+              <label className="flex items-center gap-3 p-3 bg-[#0f172a] hover:bg-slate-800/30 rounded-xl cursor-pointer transition-all border border-slate-800">
+                <input
+                  type="checkbox"
+                  checked={canMic}
+                  onChange={(e) => setCanMic(e.target.checked)}
+                  disabled={isRestricted}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5 selection:bg-transparent">
+                  <i className="fa-solid fa-microphone text-green-400 text-sm"></i>
+                  是否可開麥克風 (開Mic)
+                </span>
+              </label>
+            </div>
           </div>
 
           <div className="lg:col-span-12 flex justify-end">
