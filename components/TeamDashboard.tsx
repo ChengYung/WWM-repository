@@ -626,15 +626,20 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
                     {['RK1', 'NG1', 'NG2', 'NG3', 'NG4'].map(sessionKey => {
                       const filterVal = `SAT_${sessionKey}`;
                       const label = SESSION_LABELS[sessionKey] || '';
+                      const isSelected = sessionFilter === filterVal;
                       return (
                         <div key={sessionKey} className="relative group">
                           <button
                             type="button"
                             onClick={() => setSessionFilter(filterVal)}
                             className={`px-2 py-1 rounded-md text-[9px] font-black transition-all border ${
-                              sessionFilter === filterVal
-                                ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'
-                                : 'bg-[#0f172a] border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                              isSelected
+                                ? 'bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-500/20'
+                                : 'bg-[#0f172a] border-slate-800 hover:border-slate-700'
+                            } ${
+                              sessionKey === 'RK1'
+                                ? (isSelected ? 'text-yellow-300' : 'text-amber-500/80 hover:text-amber-400')
+                                : (isSelected ? 'text-cyan-200' : 'text-cyan-500/80 hover:text-cyan-400')
                             }`}
                           >
                             {sessionKey}
@@ -657,15 +662,20 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
                     {['RK1', 'NG1', 'NG2', 'NG3', 'NG4'].map(sessionKey => {
                       const filterVal = `SUN_${sessionKey}`;
                       const label = SESSION_LABELS[sessionKey] || '';
+                      const isSelected = sessionFilter === filterVal;
                       return (
                         <div key={sessionKey} className="relative group">
                           <button
                             type="button"
                             onClick={() => setSessionFilter(filterVal)}
                             className={`px-2 py-1 rounded-md text-[9px] font-black transition-all border ${
-                              sessionFilter === filterVal
-                                ? 'bg-teal-600 border-teal-500 text-white shadow-lg shadow-teal-500/20'
-                                : 'bg-[#0f172a] border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                              isSelected
+                                ? 'bg-teal-600 border-teal-500 shadow-lg shadow-teal-500/20'
+                                : 'bg-[#0f172a] border-slate-800 hover:border-slate-700'
+                            } ${
+                              sessionKey === 'RK1'
+                                ? (isSelected ? 'text-yellow-350' : 'text-amber-500/80 hover:text-amber-400')
+                                : (isSelected ? 'text-cyan-200' : 'text-cyan-500/80 hover:text-cyan-400')
                             }`}
                           >
                             {sessionKey}

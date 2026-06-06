@@ -175,12 +175,20 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                       }}
                       className={`py-2 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 select-none ${
                         isSelected
-                        ? 'bg-indigo-600 border-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.35)] scale-[1.03]'
-                        : 'bg-[#020617] border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300'
+                        ? 'bg-indigo-600 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.35)] scale-[1.03]'
+                        : 'bg-[#020617] border-slate-800 hover:border-slate-700'
                       }`}
                     >
-                      <span className="text-[11px] font-black">{sessionKey}</span>
-                      <span className="text-[8px] font-medium opacity-60 tracking-wider">
+                      <span className={`text-[11px] font-black ${
+                        sessionKey === 'RK1' 
+                          ? (isSelected ? 'text-yellow-300' : 'text-amber-500/70 hover:text-amber-400')
+                          : (isSelected ? 'text-cyan-200' : 'text-cyan-500/70 hover:text-cyan-400')
+                      }`}>{sessionKey}</span>
+                      <span className={`text-[8px] font-medium opacity-70 tracking-wider ${
+                        sessionKey === 'RK1' 
+                          ? (isSelected ? 'text-yellow-400/90' : 'text-amber-600/70')
+                          : (isSelected ? 'text-cyan-300/90' : 'text-cyan-600/70')
+                      }`}>
                         {SESSION_LABELS[sessionKey]?.replace(/[^\d]/g, '')}
                       </span>
                     </button>
@@ -210,12 +218,20 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                       }}
                       className={`py-2 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 select-none ${
                         isSelected
-                        ? 'bg-teal-600 border-teal-500 text-white shadow-[0_0_15px_rgba(20,185,129,0.35)] scale-[1.03]'
-                        : 'bg-[#020617] border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300'
+                        ? 'bg-teal-600 border-teal-500 shadow-[0_0_15px_rgba(20,185,129,0.35)] scale-[1.03]'
+                        : 'bg-[#020617] border-slate-800 hover:border-slate-700'
                       }`}
                     >
-                      <span className="text-[11px] font-black">{sessionKey}</span>
-                      <span className="text-[8px] font-medium opacity-60 tracking-wider">
+                      <span className={`text-[11px] font-black ${
+                        sessionKey === 'RK1' 
+                          ? (isSelected ? 'text-yellow-350' : 'text-amber-500/70 hover:text-amber-400')
+                          : (isSelected ? 'text-cyan-200' : 'text-cyan-500/70 hover:text-cyan-400')
+                      }`}>{sessionKey}</span>
+                      <span className={`text-[8px] font-medium opacity-70 tracking-wider ${
+                        sessionKey === 'RK1' 
+                          ? (isSelected ? 'text-yellow-400/90' : 'text-amber-600/70')
+                          : (isSelected ? 'text-cyan-300/90' : 'text-cyan-600/70')
+                      }`}>
                         {SESSION_LABELS[sessionKey]?.replace(/[^\d]/g, '')}
                       </span>
                     </button>

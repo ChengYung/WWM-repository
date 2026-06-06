@@ -136,12 +136,31 @@ export const ProjectService = {
     });
   },
 
+  cleanData<T>(obj: T): T {
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.cleanData(item)) as any;
+    }
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const key of Object.keys(obj as any)) {
+        const val = (obj as any)[key];
+        if (val !== undefined) {
+          cleaned[key] = this.cleanData(val);
+        }
+      }
+      return cleaned;
+    }
+    return obj;
+  },
+
   async addPlayer(projectId: string, player: Omit<Player, 'id'>) {
     const playerRef = doc(collection(db, 'projects', projectId, 'players'));
     const projectRef = doc(db, 'projects', projectId);
     
+    const cleanedPlayer = this.cleanData(player);
     const batch = writeBatch(db);
-    batch.set(playerRef, { ...player, id: playerRef.id, projectId });
+    batch.set(playerRef, { ...cleanedPlayer, id: playerRef.id, projectId });
     batch.update(projectRef, { playerCount: increment(1) });
     
     await batch.commit();
@@ -171,7 +190,8 @@ export const ProjectService = {
 
   async updatePlayer(projectId: string, player: Player) {
     const ref = doc(db, 'projects', projectId, 'players', player.id);
-    return setDoc(ref, player);
+    const cleanedPlayer = this.cleanData(player);
+    return setDoc(ref, cleanedPlayer);
   },
 
   async deletePlayer(projectId: string, playerId: string) {

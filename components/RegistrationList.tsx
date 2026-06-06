@@ -278,10 +278,14 @@ const PlayerRow = memo(({
                           });
                         }}
                         title={SESSION_LABELS[s]}
-                        className={`text-[8px] font-black px-1.5 py-0.5 rounded transition-all select-none ${
+                        className={`text-[8px] font-black px-1.5 py-0.5 rounded transition-all select-none border ${
                           isSelected
-                            ? 'bg-indigo-600 border border-indigo-500 text-white shadow-sm shadow-indigo-500/20 scale-105 hover:bg-indigo-500'
-                            : 'bg-[#020617] border border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-350'
+                            ? 'bg-indigo-600 border-indigo-500 shadow-sm shadow-indigo-500/20 scale-105 hover:bg-indigo-500'
+                            : 'bg-[#020617] border-slate-800 hover:border-slate-700'
+                        } ${
+                          s === 'RK1'
+                            ? (isSelected ? 'text-yellow-300' : 'text-amber-500/50')
+                            : (isSelected ? 'text-cyan-200' : 'text-cyan-600/50')
                         }`}
                       >
                         {s}
@@ -356,10 +360,14 @@ const PlayerRow = memo(({
                           });
                         }}
                         title={SESSION_LABELS[s]}
-                        className={`text-[8px] font-black px-1.5 py-0.5 rounded transition-all select-none ${
+                        className={`text-[8px] font-black px-1.5 py-0.5 rounded transition-all select-none border ${
                           isSelected
-                            ? 'bg-teal-600 border border-teal-500 text-white shadow-sm shadow-teal-500/20 scale-105 hover:bg-teal-500'
-                            : 'bg-[#020617] border border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-350'
+                            ? 'bg-teal-600 border-teal-500 shadow-sm shadow-teal-500/20 scale-105 hover:bg-teal-500'
+                            : 'bg-[#020617] border-slate-800 hover:border-slate-700'
+                        } ${
+                          s === 'RK1'
+                            ? (isSelected ? 'text-yellow-350' : 'text-amber-500/50')
+                            : (isSelected ? 'text-cyan-200' : 'text-cyan-600/50')
                         }`}
                       >
                         {s}
@@ -400,7 +408,7 @@ const PlayerRow = memo(({
                 }`}
                 title="點擊可移除分配"
               >
-                {isSat ? '六' : '日'}: {name}
+                {isSat ? '六' : '日'}: <span className={name === 'RK1' ? 'text-yellow-300 font-extrabold ml-0.5' : 'text-cyan-200 font-bold ml-0.5'}>{name}</span>
                 <i className="fa-solid fa-xmark text-[8px] ml-0.5 opacity-60"></i>
               </span>
             );
@@ -1138,7 +1146,6 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
                   onChange={(e) => setSmartTargetSession(e.target.value)}
                   className="bg-[#020617] border border-[#1e293b] text-xs font-bold rounded-lg px-3 py-2 outline-none text-white focus:border-purple-500 w-full"
                 >
-                  <option value="default">預設跨場次 (Master [分配隊伍])</option>
                   <optgroup label="週六場次">
                     <option value="SAT_RK1">週六 RK1 (聯賽 2030)</option>
                     <option value="SAT_NG1">週六 NG1 (配對賽 2130)</option>
