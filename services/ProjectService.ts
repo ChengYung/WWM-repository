@@ -157,6 +157,18 @@ export const ProjectService = {
     return batch.commit();
   },
 
+  async updatePlayersSessionTeams(projectId: string, updates: { id: string; teamBySession: Record<string, string>; assignedSessions: string[] }[]) {
+    const batch = writeBatch(db);
+    updates.forEach(u => {
+      const ref = doc(db, 'projects', projectId, 'players', u.id);
+      batch.update(ref, { 
+        teamBySession: u.teamBySession,
+        assignedSessions: u.assignedSessions
+      });
+    });
+    return batch.commit();
+  },
+
   async updatePlayer(projectId: string, player: Player) {
     const ref = doc(db, 'projects', projectId, 'players', player.id);
     return setDoc(ref, player);

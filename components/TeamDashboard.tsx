@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback, memo } from 'react';
 import { Player, TeamConfig, MartialArts } from '../types';
 import { useMartialArtsFilter } from '../hooks/useMartialArtsFilter';
+import { SESSION_LABELS } from '../constants';
 
 interface TeamCardProps {
   teamName: string;
@@ -16,7 +17,7 @@ interface TeamCardProps {
   onDragStart: (e: React.DragEvent, playerId: string) => void;
   onDrop: (e: React.DragEvent, teamName: string) => void;
   maFilter: string[];
-  sessionFilter: 'SAT' | 'SUN' | null;
+  sessionFilter: string | null;
   getMaGroupPriority: (maKey: string) => number;
   isRestricted?: boolean;
   filterNoSelf?: boolean;
@@ -165,7 +166,7 @@ const TeamCard = memo(({
 interface TeamDashboardProps {
   players: Player[];
   onMovePlayer: (playerId: string, targetTeam: string) => void;
-  onUpdatePlayers: (updates: { id: string; team: string }[]) => void;
+  onUpdatePlayers: (updates: { id: string; team: string }[], sessionFilter?: string | null) => void;
   onResetTeams: () => void;
   onUpdateDescription: (teamName: string, config: TeamConfig) => void;
   teams: string[];
@@ -190,7 +191,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   const [bulkSource, setBulkSource] = useState(teams.includes('候補') ? '候補' : teams[teams.length - 1]);
   const [bulkTarget, setBulkTarget] = useState(teams[0]);
   const [targetTeam, setTargetTeam] = useState(teams[0]);
-  const [sessionFilter, setSessionFilter] = useState<'SAT' | 'SUN' | null>(null);
+  const [sessionFilter, setSessionFilter] = useState<string | null>(null);
 
   const [filterNoSelf, setFilterNoSelf] = useState(false);
   const [filterDc, setFilterDc] = useState(false);
@@ -202,6 +203,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   const [prioritizeNoSelf, setPrioritizeNoSelf] = useState(false);
   const [prioritizeDc, setPrioritizeDc] = useState(false);
   const [prioritizeMic, setPrioritizeMic] = useState(false);
+  const [prioritizePrevReserve, setPrioritizePrevReserve] = useState(false);
   
   const {
     maFilter,
@@ -241,10 +243,106 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   const handleRunSmartAssign = useCallback(() => {
     if (players.length === 0) return;
 
+    if (!sessionFilter) {
+      alert("請先選擇特定的場次（例如：週六 RK1），才能進行該場次的智能選隊！");
+      return;
+    }
+
+    // 1. Validate total selected counts do not exceed 30 (Rule 1)
+    const totalCount = martialArts.reduce((sum, ma) => sum + (smartMaCounts[ma.name] || 0), 0);
+    if (totalCount > 30) {
+      alert("武學人數的總和不能超過30人，已超過百業戰人數上限！");
+      return;
+    }
+
+    if (!window.confirm('執行此操作後，將會根據篩選條件與各武學配置人數，直接修改並覆蓋當前選定場次的各玩家分配隊伍。確定要執行嗎？')) {
+      return;
+    }
+
     const firstTeamName = teams.find(t => t.includes('一隊') || t.includes('防守') || t.includes('進攻')) || teams[0] || '第一隊:進攻';
 
-    const candidates = [...players];
+    // 2. Sequence order validation (Rule 4)
+    const satSequence = ['SAT_RK1', 'SAT_NG1', 'SAT_NG2', 'SAT_NG3', 'SAT_NG4'];
+    const sunSequence = ['SUN_RK1', 'SUN_NG1', 'SUN_NG2', 'SUN_NG3', 'SUN_NG4'];
+    
+    let seq: string[] = [];
+    if (satSequence.includes(sessionFilter)) {
+      seq = satSequence;
+    } else if (sunSequence.includes(sessionFilter)) {
+      seq = sunSequence;
+    }
+    
+    const idx = seq.indexOf(sessionFilter);
+    if (idx > 0) {
+      // Must check if the previous session is already configured
+      const prevSession = seq[idx - 1];
+      const isPrevConfigured = players.some(p => (p.assignedSessions || []).includes(prevSession));
+      if (!isPrevConfigured) {
+        const displayPrevName = prevSession.startsWith('SAT_') 
+          ? `週六 ${prevSession.substring(4)}` 
+          : `週日 ${prevSession.substring(4)}`;
+        const displayCurrentName = sessionFilter.startsWith('SAT_') 
+          ? `週六 ${sessionFilter.substring(4)}` 
+          : `週日 ${sessionFilter.substring(4)}`;
+        alert(`一定要先編輯並分配 ${displayPrevName} 之後，才能調整 ${displayCurrentName} 的人員分配！\n請依照 RK1 -> NG1 -> NG2 -> NG3 -> NG4 優先順序進行。`);
+        return;
+      }
+    }
+
+    // 3. Filter candidates based on current session filter if specified
+    let candidates = [...players];
+    const isSat = sessionFilter.startsWith('SAT_');
+    const sessionKey = sessionFilter.replace('SAT_', '').replace('SUN_', '');
+    candidates = players.filter(p => {
+      const registeredSessions = isSat 
+        ? (p.satSessions || (p.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []))
+        : (p.sunSessions || (p.sunAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []));
+      return registeredSessions.includes(sessionKey);
+    });
+
+    // Determine previous session key for prioritising previous backup/reserves
+    const getPrevSessionKey = (currentSession: string): string | null => {
+      if (satSequence.includes(currentSession)) {
+        const i = satSequence.indexOf(currentSession);
+        return i > 0 ? satSequence[i - 1] : null;
+      }
+      if (sunSequence.includes(currentSession)) {
+        const i = sunSequence.indexOf(currentSession);
+        return i > 0 ? sunSequence[i - 1] : null;
+      }
+      return null;
+    };
+
+    const prevSessionKey = getPrevSessionKey(sessionFilter);
+
+    const isPrevBackup = (p: Player): boolean => {
+      if (!prevSessionKey) return false;
+      
+      const prevIsSat = prevSessionKey.startsWith('SAT_');
+      const prevSessionKeyOnly = prevSessionKey.replace('SAT_', '').replace('SUN_', '');
+      const registeredSessions = prevIsSat 
+        ? (p.satSessions || (p.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []))
+        : (p.sunSessions || (p.sunAvailability === 'YES' ? ['RK1', 'SUN_NG1', 'SUN_NG2', 'SUN_NG3', 'SUN_NG4'] : [])); // fallback 
+      
+      const verifiedReg = prevIsSat 
+        ? (p.satSessions || (p.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []))
+        : (p.sunSessions || (p.sunAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []));
+
+      if (!verifiedReg.includes(prevSessionKeyOnly)) return false;
+      
+      const isAssigned = (p.assignedSessions || []).includes(prevSessionKey);
+      const teamInPrev = p.teamBySession?.[prevSessionKey] || '候補';
+      
+      return !isAssigned || teamInPrev === '候補';
+    };
+
+    // 4. Sort candidates (Rule 5 priority at the topmost)
     candidates.sort((a, b) => {
+      if (prioritizePrevReserve && prevSessionKey) {
+        const backupA = isPrevBackup(a) ? 1 : 0;
+        const backupB = isPrevBackup(b) ? 1 : 0;
+        if (backupA !== backupB) return backupB - backupA;
+      }
       if (prioritizeNoSelf) {
         const nsA = a.noSelf ? 1 : 0;
         const nsB = b.noSelf ? 1 : 0;
@@ -284,14 +382,15 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
       }
     }
 
-    const updates = players.map(p => ({
+    // 5. Map updates and submit using sessionFilter
+    const updates = candidates.map(p => ({
       id: p.id,
       team: selectedIds.has(p.id) ? firstTeamName : '候補'
     }));
 
-    onUpdatePlayers(updates);
+    onUpdatePlayers(updates, sessionFilter);
     setShowSmartAssign(false);
-  }, [players, teams, martialArts, smartMaCounts, prioritizePower, prioritizeNoSelf, prioritizeDc, prioritizeMic, onUpdatePlayers]);
+  }, [players, teams, martialArts, smartMaCounts, prioritizePower, prioritizeNoSelf, prioritizeDc, prioritizeMic, prioritizePrevReserve, onUpdatePlayers, sessionFilter]);
 
   const displayedFilteredPlayers = useMemo(() => {
     let list = filteredPlayers;
@@ -320,15 +419,33 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
 
     // Single pass through players
     players.forEach(p => {
-      if (!groups[p.team]) return;
+      let currentTeam = p.team || '候補';
+      let isAvailable = true;
+
+      if (sessionFilter) {
+        const isSat = sessionFilter.startsWith('SAT_');
+        const sessionKey = sessionFilter.replace('SAT_', '').replace('SUN_', '');
+        
+        const registeredSessions = isSat 
+          ? (p.satSessions || (p.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []))
+          : (p.sunSessions || (p.sunAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []));
+        
+        isAvailable = registeredSessions.includes(sessionKey);
+
+        const assigned = p.assignedSessions || [];
+        const isAssignedToThisSession = assigned.includes(sessionFilter);
+
+        if (isAssignedToThisSession) {
+          currentTeam = p.teamBySession?.[sessionFilter] || '第一隊:進攻';
+        } else {
+          currentTeam = '候補';
+        }
+      }
+
+      if (!groups[currentTeam]) return;
 
       const maKey = [...p.martialArts].sort().join(' + ') || '未設定武學';
-      
-      let isAvailable = true;
-      if (sessionFilter === 'SAT') isAvailable = p.satAvailability === 'YES';
-      if (sessionFilter === 'SUN') isAvailable = p.sunAvailability === 'YES';
-
-      const targetGroup = isAvailable ? groups[p.team].active : groups[p.team].inactive;
+      const targetGroup = isAvailable ? groups[currentTeam].active : groups[currentTeam].inactive;
       if (!targetGroup[maKey]) targetGroup[maKey] = [];
       targetGroup[maKey].push(p);
     });
@@ -360,7 +477,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
     const playerIdsStr = e.dataTransfer.getData('playerIds');
     if (playerIdsStr) {
       const ids = JSON.parse(playerIdsStr) as string[];
-      ids.forEach(id => onMovePlayer(id, teamName));
+      ids.forEach(id => onMovePlayer(id, teamName, sessionFilter));
       setSelectedPlayerIds(new Set());
     }
   };
@@ -374,27 +491,47 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   }, [selectedPlayerIds]);
 
   const unassignedCount = useMemo(() => {
-    return players.filter(p => p.team === '候補').length;
-  }, [players]);
+    return players.filter(p => {
+      if (sessionFilter) {
+        return !(p.assignedSessions || []).includes(sessionFilter);
+      }
+      return p.team === '候補';
+    }).length;
+  }, [players, sessionFilter]);
 
   const handleBulkAssign = useCallback(() => {
     if (selectedPlayerIds.size === 0) return;
     const updates = Array.from(selectedPlayerIds).map(id => ({ id, team: targetTeam }));
-    onUpdatePlayers(updates);
+    onUpdatePlayers(updates, sessionFilter);
     setSelectedPlayerIds(new Set());
-  }, [selectedPlayerIds, targetTeam, onUpdatePlayers]);
+  }, [selectedPlayerIds, targetTeam, onUpdatePlayers, sessionFilter]);
 
   const handleAssignUnassigned = useCallback(() => {
-    const unassignedPlayers = players.filter(p => p.team === '候補');
+    const unassignedPlayers = players.filter(p => {
+      if (sessionFilter) {
+        return !(p.assignedSessions || []).includes(sessionFilter);
+      }
+      return p.team === '候補';
+    });
     if (unassignedPlayers.length === 0) return;
     const updates = unassignedPlayers.map(p => ({ id: p.id, team: targetTeam }));
-    onUpdatePlayers(updates);
-  }, [players, targetTeam, onUpdatePlayers]);
+    onUpdatePlayers(updates, sessionFilter);
+  }, [players, targetTeam, onUpdatePlayers, sessionFilter]);
 
   const handleBulkTeamMove = useCallback(() => {
-    const playersToMove = players.filter(p => p.team === bulkSource);
-    playersToMove.forEach(p => onMovePlayer(p.id, bulkTarget));
-  }, [players, bulkSource, bulkTarget, onMovePlayer]);
+    const playersToMove = players.filter(p => {
+      if (sessionFilter) {
+        const assigned = p.assignedSessions || [];
+        if (!assigned.includes(sessionFilter)) {
+          return bulkSource === '候補';
+        }
+        const currentTeam = p.teamBySession?.[sessionFilter] || '第一隊:進攻';
+        return currentTeam === bulkSource;
+      }
+      return p.team === bulkSource;
+    });
+    playersToMove.forEach(p => onMovePlayer(p.id, bulkTarget, sessionFilter));
+  }, [players, bulkSource, bulkTarget, onMovePlayer, sessionFilter]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => e.preventDefault(), []);
 
@@ -470,25 +607,80 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
           {/* Management Controls */}
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 w-full xl:w-auto">
             {/* Session Filter */}
-            <div className="flex items-center gap-2 bg-[#020617] p-1.5 rounded-2xl border border-slate-800 shadow-inner">
-              <button
-                onClick={() => setSessionFilter(null)}
-                className={`flex-1 px-3 py-2 rounded-xl text-[9px] font-black transition-all ${!sessionFilter ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                全部
-              </button>
-              <button
-                onClick={() => setSessionFilter('SAT')}
-                className={`flex-1 px-3 py-2 rounded-xl text-[9px] font-black transition-all ${sessionFilter === 'SAT' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                週六
-              </button>
-              <button
-                onClick={() => setSessionFilter('SUN')}
-                className={`flex-1 px-3 py-2 rounded-xl text-[9px] font-black transition-all ${sessionFilter === 'SUN' ? 'bg-teal-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                週日
-              </button>
+            <div className="flex flex-col gap-2 bg-[#020617] p-3 rounded-2xl border border-slate-800 shadow-inner w-full lg:w-auto">
+              <div className="flex items-center justify-between gap-4 border-b border-slate-800/60 pb-2">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">選擇場次</span>
+                <button
+                  onClick={() => setSessionFilter(null)}
+                  className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${!sessionFilter ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  全部
+                </button>
+              </div>
+              
+              <div className="flex flex-col gap-2.5">
+                {/* Saturday Row Wrap */}
+                <div className="flex items-center gap-2 bg-indigo-950/20 border border-indigo-500/15 p-2 rounded-xl">
+                  <span className="text-[9px] font-black text-indigo-400 w-10 shrink-0">週六場:</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {['RK1', 'NG1', 'NG2', 'NG3', 'NG4'].map(sessionKey => {
+                      const filterVal = `SAT_${sessionKey}`;
+                      const label = SESSION_LABELS[sessionKey] || '';
+                      return (
+                        <div key={sessionKey} className="relative group">
+                          <button
+                            type="button"
+                            onClick={() => setSessionFilter(filterVal)}
+                            className={`px-2 py-1 rounded-md text-[9px] font-black transition-all border ${
+                              sessionFilter === filterVal
+                                ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                                : 'bg-[#0f172a] border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                            }`}
+                          >
+                            {sessionKey}
+                          </button>
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 bg-[#1e293b] border border-slate-700 rounded-md text-[9px] font-black text-slate-300 w-max invisible group-hover:visible group-hover:opacity-100 opacity-0 transition-all z-50 pointer-events-none shadow-xl">
+                            {label}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1e293b]"></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Sunday Row Wrap */}
+                <div className="flex items-center gap-2 bg-teal-950/20 border border-teal-500/15 p-2 rounded-xl">
+                  <span className="text-[9px] font-black text-teal-400 w-10 shrink-0">週日場:</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {['RK1', 'NG1', 'NG2', 'NG3', 'NG4'].map(sessionKey => {
+                      const filterVal = `SUN_${sessionKey}`;
+                      const label = SESSION_LABELS[sessionKey] || '';
+                      return (
+                        <div key={sessionKey} className="relative group">
+                          <button
+                            type="button"
+                            onClick={() => setSessionFilter(filterVal)}
+                            className={`px-2 py-1 rounded-md text-[9px] font-black transition-all border ${
+                              sessionFilter === filterVal
+                                ? 'bg-teal-600 border-teal-500 text-white shadow-lg shadow-teal-500/20'
+                                : 'bg-[#0f172a] border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                            }`}
+                          >
+                            {sessionKey}
+                          </button>
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 bg-[#1e293b] border border-slate-700 rounded-md text-[9px] font-black text-slate-300 w-max invisible group-hover:visible group-hover:opacity-100 opacity-0 transition-all z-50 pointer-events-none shadow-xl">
+                            {label}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1e293b]"></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Quick Assign */}
@@ -590,117 +782,8 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
               </div>
             </div>
 
-            {/* Smart Team Selection Button Trigger */}
-            <div className="flex flex-col sm:flex-row items-end gap-4 bg-[#020617] p-4 rounded-2xl border border-slate-800">
-              <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                <span className="text-[10px] font-black text-purple-400 uppercase tracking-tighter leading-none">智慧分配</span>
-                <button
-                  onClick={() => setShowSmartAssign(!showSmartAssign)}
-                  className={`px-4 h-9 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg flex items-center justify-center gap-1.5 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <i className="fa-solid fa-brain"></i>
-                  智慧選隊
-                </button>
-              </div>
-            </div>
           </div>
         </div>
-
-        {/* Smart Team Assignment configs Drawer */}
-        {showSmartAssign && (
-          <div className="mt-4 p-5 bg-[#020617] rounded-3xl border border-slate-800 space-y-4 animate-in slide-in-from-top-4 duration-300">
-            <h4 className="text-xs font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
-              <i className="fa-solid fa-gears text-purple-500"></i> 智慧選隊配置
-            </h4>
-            
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400">各武學配置人數 (留空或 0 代表不限制)</label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {martialArts.map(ma => (
-                  <div key={ma.name} className="flex items-center justify-between gap-2 p-2 bg-[#0f172a] rounded-xl border border-slate-800">
-                    <span className="text-[10px] font-bold text-slate-300 truncate flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ma.color }}></span>
-                      {ma.name}
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={smartMaCounts[ma.name] === undefined ? '' : smartMaCounts[ma.name]}
-                      onChange={(e) => {
-                        const val = e.target.value === '' ? '' : parseInt(e.target.value) || 0;
-                        setSmartMaCounts(prev => ({ ...prev, [ma.name]: val === '' ? 0 : val }));
-                      }}
-                      className="w-12 p-1 text-center bg-[#020617] border border-[#1e293b] text-[10px] font-black text-white rounded-lg outline-none focus:border-purple-500"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
-                <input
-                  type="checkbox"
-                  checked={prioritizePower}
-                  onChange={(e) => setPrioritizePower(e.target.checked)}
-                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                />
-                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
-                  <i className="fa-solid fa-bolt text-yellow-500"></i> 優先安排戰力指數高
-                </span>
-              </label>
-
-              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
-                <input
-                  type="checkbox"
-                  checked={prioritizeNoSelf}
-                  onChange={(e) => setPrioritizeNoSelf(e.target.checked)}
-                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                />
-                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
-                  <i className="fa-solid fa-peace text-yellow-500"></i> 優先安排無我 (No Self)
-                </span>
-              </label>
-
-              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
-                <input
-                  type="checkbox"
-                  checked={prioritizeDc}
-                  onChange={(e) => setPrioritizeDc(e.target.checked)}
-                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                />
-                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
-                  <i className="fa-brands fa-discord text-indigo-400"></i> 優先安排有 DC
-                </span>
-              </label>
-
-              <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
-                <input
-                  type="checkbox"
-                  checked={prioritizeMic}
-                  onChange={(e) => setPrioritizeMic(e.target.checked)}
-                  className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                />
-                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
-                  <i className="fa-solid fa-microphone text-green-400"></i> 優先安排可開 Mic
-                </span>
-              </label>
-            </div>
-
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
-              <span className="text-[10px] text-slate-500">
-                符合各選取條件的玩家將被指派分配到 <span className="text-purple-400 font-bold">第一隊:進攻</span>，其餘未入選者歸類到 <span className="text-yellow-500 font-bold">候補</span> 隊伍。
-              </span>
-              <button
-                disabled={isRestricted}
-                onClick={handleRunSmartAssign}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-[11px] rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all disabled:opacity-55"
-              >
-                執行智慧選隊
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Martial Arts Filter Section */}
         <div className="flex flex-col gap-4 w-full border-t border-slate-800 pt-6">
@@ -770,7 +853,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
                 className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-blue-500 focus:ring-blue-500/50 cursor-pointer"
               />
               <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
-                <i className="fa-solid fa-peace text-yellow-500"></i> 無我
+                <i className="fa-solid fa-trophy text-yellow-500"></i> 無我
               </span>
             </label>
 

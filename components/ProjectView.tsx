@@ -128,18 +128,41 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
     }
   }, [projectId, isAdmin, isRestricted]);
 
-  const handleUpdatePlayers = useCallback(async (updates: { id: string; team: string }[]) => {
+  const handleUpdatePlayers = useCallback(async (updates: { id: string; team: string }[], sessionFilter?: string | null) => {
     if (!projectId) return;
     if (!isAdmin && isRestricted) {
       showToast('專案已過期或被限制，無法修改資料', 'error');
       return;
     }
     try {
-      await ProjectService.updatePlayers(projectId, updates);
+      if (sessionFilter) {
+        const batchUpdates: { id: string; teamBySession: Record<string, string>; assignedSessions: string[] }[] = [];
+        for (const update of updates) {
+          const p = players.find(player => player.id === update.id);
+          if (!p) continue;
+          const teamBySession = { ...p.teamBySession };
+          teamBySession[sessionFilter] = update.team;
+          
+          let assigned = p.assignedSessions || [];
+          if (!assigned.includes(sessionFilter)) {
+            assigned = [...assigned, sessionFilter];
+          }
+          batchUpdates.push({
+            id: update.id,
+            teamBySession,
+            assignedSessions: assigned
+          });
+        }
+        if (batchUpdates.length > 0) {
+          await ProjectService.updatePlayersSessionTeams(projectId, batchUpdates);
+        }
+      } else {
+        await ProjectService.updatePlayers(projectId, updates);
+      }
     } catch (error) {
       console.error("Failed to update players", error);
     }
-  }, [projectId, isAdmin, isRestricted]);
+  }, [projectId, players, isAdmin, isRestricted]);
 
   const handleDeletePlayer = useCallback((id: string) => {
     if (!projectId) return;
@@ -200,14 +223,32 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
     }
   }, [projectId, isAdmin, isRestricted]);
 
-  const handleMovePlayer = useCallback(async (playerId: string, targetTeam: string) => {
+  const handleMovePlayer = useCallback(async (playerId: string, targetTeam: string, sessionFilter?: string | null) => {
     if (!projectId) return;
     try {
-      await ProjectService.updatePlayers(projectId, [{ id: playerId, team: targetTeam }]);
+      const p = players.find(player => player.id === playerId);
+      if (!p) return;
+      if (sessionFilter) {
+        const teamBySession = { ...p.teamBySession };
+        teamBySession[sessionFilter] = targetTeam;
+        
+        let assigned = p.assignedSessions || [];
+        if (!assigned.includes(sessionFilter)) {
+          assigned = [...assigned, sessionFilter];
+        }
+        
+        await ProjectService.updatePlayer(projectId, {
+          ...p,
+          teamBySession,
+          assignedSessions: assigned
+        });
+      } else {
+        await ProjectService.updatePlayers(projectId, [{ id: playerId, team: targetTeam }]);
+      }
     } catch (error) {
       console.error("Failed to move player", error);
     }
-  }, [projectId]);
+  }, [projectId, players]);
 
   const handleSendOwnerMessage = useCallback(async (message: string) => {
     if (!projectId) return;
@@ -386,7 +427,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
         <div className="max-w-7xl mx-auto px-4 flex flex-nowrap overflow-x-auto no-scrollbar scroll-smooth">
           <TabButton active={activeTab === 0} onClick={() => setActiveTab(0)} icon="fa-solid fa-file-signature" label="報名登記" />
           <TabButton active={activeTab === 1} onClick={() => setActiveTab(1)} icon="fa-solid fa-users" label="報名名單" />
-          <TabButton active={activeTab === 2} onClick={() => setActiveTab(2)} icon="fa-solid fa-chart-column" label="隊伍統計" />
+          <TabButton active={activeTab === 2} onClick={() => setActiveTab(2)} icon="fa-solid fa-chart-column" label="隊伍編制" />
           <TabButton active={activeTab === 3} onClick={() => setActiveTab(3)} icon="fa-solid fa-scroll" label="操作技巧" />
           {(isOwner || isAdmin) && (
             <TabButton active={activeTab === 5} onClick={() => setActiveTab(5)} icon="fa-solid fa-gears" label="配置設定" />

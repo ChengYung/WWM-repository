@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Player, MartialArts, Availability } from '../types';
 import { useToast } from './Toast';
+import { SESSION_LABELS } from '../constants';
 
 interface RegistrationSheetProps {
   onAddPlayer: (player: Omit<Player, 'id' | 'createdAt'>) => void;
@@ -22,8 +23,8 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
 }) => {
   const [gameId, setGameId] = useState('');
   const [selectedMAs, setSelectedMAs] = useState<string[]>([]);
-  const [sat, setSat] = useState<Availability>('YES');
-  const [sun, setSun] = useState<Availability>('YES');
+  const [selectedSatSessions, setSelectedSatSessions] = useState<string[]>(['RK1', 'NG1', 'NG2', 'NG3', 'NG4']);
+  const [selectedSunSessions, setSelectedSunSessions] = useState<string[]>(['RK1', 'NG1', 'NG2', 'NG3', 'NG4']);
   const [notes, setNotes] = useState('');
   const [power, setPower] = useState('');
   const [noSelf, setNoSelf] = useState(false);
@@ -61,8 +62,10 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
     onAddPlayer({
       gameId,
       martialArts: selectedMAs,
-      satAvailability: sat,
-      sunAvailability: sun,
+      satAvailability: selectedSatSessions.length > 0 ? 'YES' : 'NO',
+      sunAvailability: selectedSunSessions.length > 0 ? 'YES' : 'NO',
+      satSessions: selectedSatSessions,
+      sunSessions: selectedSunSessions,
       notes,
       team: '候補',
       power: power.trim() || undefined,
@@ -72,6 +75,8 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
     });
     setGameId('');
     setSelectedMAs([]);
+    setSelectedSatSessions(['RK1', 'NG1', 'NG2', 'NG3', 'NG4']);
+    setSelectedSunSessions(['RK1', 'NG1', 'NG2', 'NG3', 'NG4']);
     setNotes('');
     setPower('');
     setNoSelf(false);
@@ -148,43 +153,79 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:col-span-6 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-400">週六場</label>
-              <button
-                type="button"
-                disabled={isRestricted}
-                onClick={() => setSat(sat === 'YES' ? 'NO' : 'YES')}
-                className={`w-full py-3 rounded-xl font-black transition-all border-2 flex items-center justify-center gap-2 ${
-                  sat === 'YES' 
-                  ? 'bg-green-500 border-green-400 text-slate-950 shadow-[0_0_20px_rgba(34,197,94,0.3)] scale-[1.02]' 
-                  : 'bg-[#020617] border-slate-800 text-slate-500 hover:border-slate-700'
-                } ${isRestricted ? 'opacity-50 cursor-not-allowed animate-none scale-100' : ''}`}
-              >
-                <i className={`fa-solid ${sat === 'YES' ? 'fa-check-circle' : 'fa-xmark-circle'}`}></i>
-                <span className="text-xs uppercase">{sat === 'YES' ? '參加' : '不參加'}</span>
-              </button>
+          <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3 bg-indigo-950/15 p-4 rounded-xl border border-indigo-500/20 shadow-md">
+              <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5 uppercase tracking-wide">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-lg shadow-indigo-500/50"></span>
+                週六場次 (預設全選，可點擊取消)
+              </label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {['RK1', 'NG1', 'NG2', 'NG3', 'NG4'].map(sessionKey => {
+                  const isSelected = selectedSatSessions.includes(sessionKey);
+                  return (
+                    <button
+                      key={`sat-${sessionKey}`}
+                      type="button"
+                      disabled={isRestricted}
+                      title={SESSION_LABELS[sessionKey]}
+                      onClick={() => {
+                        setSelectedSatSessions(prev =>
+                          prev.includes(sessionKey) ? prev.filter(s => s !== sessionKey) : [...prev, sessionKey]
+                        );
+                      }}
+                      className={`py-2 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 select-none ${
+                        isSelected
+                        ? 'bg-indigo-600 border-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.35)] scale-[1.03]'
+                        : 'bg-[#020617] border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300'
+                      }`}
+                    >
+                      <span className="text-[11px] font-black">{sessionKey}</span>
+                      <span className="text-[8px] font-medium opacity-60 tracking-wider">
+                        {SESSION_LABELS[sessionKey]?.replace(/[^\d]/g, '')}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-400">週日場</label>
-              <button
-                type="button"
-                disabled={isRestricted}
-                onClick={() => setSun(sun === 'YES' ? 'NO' : 'YES')}
-                className={`w-full py-3 rounded-xl font-black transition-all border-2 flex items-center justify-center gap-2 ${
-                  sun === 'YES' 
-                  ? 'bg-green-500 border-green-400 text-slate-950 shadow-[0_0_20px_rgba(34,197,94,0.3)] scale-[1.02]' 
-                  : 'bg-[#020617] border-slate-800 text-slate-500 hover:border-slate-700'
-                } ${isRestricted ? 'opacity-50 cursor-not-allowed animate-none scale-100' : ''}`}
-              >
-                <i className={`fa-solid ${sun === 'YES' ? 'fa-check-circle' : 'fa-xmark-circle'}`}></i>
-                <span className="text-xs uppercase">{sun === 'YES' ? '參加' : '不參加'}</span>
-              </button>
+            <div className="space-y-3 bg-teal-950/15 p-4 rounded-xl border border-teal-500/20 shadow-md">
+              <label className="text-xs font-bold text-teal-300 flex items-center gap-1.5 uppercase tracking-wide">
+                <span className="w-2 h-2 rounded-full bg-teal-500 shadow-lg shadow-teal-500/50"></span>
+                週日場次 (預設全選，可點擊取消)
+              </label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {['RK1', 'NG1', 'NG2', 'NG3', 'NG4'].map(sessionKey => {
+                  const isSelected = selectedSunSessions.includes(sessionKey);
+                  return (
+                    <button
+                      key={`sun-${sessionKey}`}
+                      type="button"
+                      disabled={isRestricted}
+                      title={SESSION_LABELS[sessionKey]}
+                      onClick={() => {
+                        setSelectedSunSessions(prev =>
+                          prev.includes(sessionKey) ? prev.filter(s => s !== sessionKey) : [...prev, sessionKey]
+                        );
+                      }}
+                      className={`py-2 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 select-none ${
+                        isSelected
+                        ? 'bg-teal-600 border-teal-500 text-white shadow-[0_0_15px_rgba(20,185,129,0.35)] scale-[1.03]'
+                        : 'bg-[#020617] border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300'
+                      }`}
+                    >
+                      <span className="text-[11px] font-black">{sessionKey}</span>
+                      <span className="text-[8px] font-medium opacity-60 tracking-wider">
+                        {SESSION_LABELS[sessionKey]?.replace(/[^\d]/g, '')}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <div className="lg:col-span-6 space-y-2">
+          <div className="lg:col-span-12 space-y-2">
             <label className="text-sm font-bold text-slate-400">備註 (選填)</label>
             <input
               type="text"
@@ -207,7 +248,7 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                   className="w-4 h-4 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
                 />
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5 selection:bg-transparent">
-                  <i className="fa-solid fa-peace text-yellow-500 text-sm"></i>
+                  <i className="fa-solid fa-trophy text-yellow-500 text-sm"></i>
                   是否無我 (勾選為無我)
                 </span>
               </label>

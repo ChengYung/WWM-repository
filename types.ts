@@ -12,6 +12,10 @@ export interface Player {
   martialArts: string[];
   satAvailability: Availability;
   sunAvailability: Availability;
+  satSessions?: string[];
+  sunSessions?: string[];
+  assignedSessions?: string[];
+  teamBySession?: Record<string, string>;
   notes: string;
   team: string;
   createdAt: number;

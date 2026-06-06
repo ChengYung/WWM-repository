@@ -64,3 +64,13 @@ export const INITIAL_TECHNIQUES = [
 ];
 
 export const AVAILABILITY_OPTIONS: Availability[] = ['YES', 'NO', '不確定'];
+
+export const SAT_SESSIONS = ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'];
+export const SUN_SESSIONS = ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'];
+export const SESSION_LABELS: Record<string, string> = {
+  'RK1': '聯賽2030',
+  'NG1': '配對賽2130',
+  'NG2': '配對賽2155',
+  'NG3': '配對賽2230',
+  'NG4': '配對賽2255'
+};
