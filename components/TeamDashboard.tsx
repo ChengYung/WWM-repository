@@ -3,6 +3,10 @@ import React, { useMemo, useState, useEffect, useRef, useCallback, memo } from '
 import { Player, TeamConfig, MartialArts } from '../types';
 import { useMartialArtsFilter } from '../hooks/useMartialArtsFilter';
 import { SESSION_LABELS } from '../constants';
+import { useToast } from './Toast';
+import { toPng } from 'html-to-image';
+import { SmartAssignPanel } from './SmartAssignPanel';
+import { ConfirmModal } from './ConfirmModal';
 
 interface TeamCardProps {
   teamName: string;
@@ -188,22 +192,21 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
 }) => {
   const [editingMissionTeam, setEditingMissionTeam] = useState<string | null>(null);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
-  const [bulkSource, setBulkSource] = useState(teams.includes('候補') ? '候補' : teams[teams.length - 1]);
-  const [bulkTarget, setBulkTarget] = useState(teams[0]);
-  const [targetTeam, setTargetTeam] = useState(teams[0]);
-  const [sessionFilter, setSessionFilter] = useState<string | null>(null);
+  const [sessionFilter, setSessionFilter] = useState<string | null>('SAT_RK1');
 
   const [filterNoSelf, setFilterNoSelf] = useState(false);
   const [filterDc, setFilterDc] = useState(false);
   const [filterMic, setFilterMic] = useState(false);
 
   const [showSmartAssign, setShowSmartAssign] = useState(false);
-  const [smartMaCounts, setSmartMaCounts] = useState<Record<string, number>>({});
-  const [prioritizePower, setPrioritizePower] = useState(true);
-  const [prioritizeNoSelf, setPrioritizeNoSelf] = useState(false);
-  const [prioritizeDc, setPrioritizeDc] = useState(false);
-  const [prioritizeMic, setPrioritizeMic] = useState(false);
-  const [prioritizePrevReserve, setPrioritizePrevReserve] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const { showToast } = useToast();
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   
   const {
     maFilter,
@@ -224,173 +227,53 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
     getDeselectPlayerIds
   } = useMartialArtsFilter(players, teams);
 
-  useEffect(() => {
-    if (martialArts && Object.keys(smartMaCounts).length === 0) {
-      const init: Record<string, number> = {};
-      martialArts.forEach(ma => {
-        init[ma.name] = 0;
+  const handleExportPNG = async () => {
+    if (!exportRef.current) return;
+    
+    showToast("正在整理編制名單並產生PNG圖檔...", "info");
+    
+    try {
+      const dataUrl = await toPng(exportRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        style: {
+          opacity: '1',
+          visibility: 'visible',
+        }
       });
-      setSmartMaCounts(init);
+      
+      const link = document.createElement('a');
+      const sessionLabel = sessionFilter ? SESSION_LABELS[sessionFilter.replace('SAT_', '').replace('SUN_', '')] || sessionFilter : '預設場次';
+      const cleanSessionName = sessionFilter ? (sessionFilter.startsWith('SAT_') ? '週六' : '週日') + '_' + sessionFilter.replace('SAT_', '').replace('SUN_', '') : '全部';
+      link.download = `隊伍編制_${cleanSessionName}_${sessionLabel}.png`;
+      link.href = dataUrl;
+      link.click();
+      showToast("隊伍PNG圖片下載成功！", "success");
+    } catch (error) {
+      console.error('Export PNG failed:', error);
+      showToast("產生PNG圖片時發生錯誤，請重試", "error");
     }
-  }, [martialArts, smartMaCounts]);
-
-  const parsePower = (powerStr?: string): number => {
-    if (!powerStr) return 0;
-    const match = powerStr.match(/([0-9.]+)/);
-    return match ? parseFloat(match[1]) : 0;
   };
 
-  const handleRunSmartAssign = useCallback(() => {
+  const handleResetCurrentSessionTeams = useCallback(() => {
     if (players.length === 0) return;
-
-    if (!sessionFilter) {
-      alert("請先選擇特定的場次（例如：週六 RK1），才能進行該場次的智能選隊！");
-      return;
-    }
-
-    // 1. Validate total selected counts do not exceed 30 (Rule 1)
-    const totalCount = martialArts.reduce((sum, ma) => sum + (smartMaCounts[ma.name] || 0), 0);
-    if (totalCount > 30) {
-      alert("武學人數的總和不能超過30人，已超過百業戰人數上限！");
-      return;
-    }
-
-    if (!window.confirm('執行此操作後，將會根據篩選條件與各武學配置人數，直接修改並覆蓋當前選定場次的各玩家分配隊伍。確定要執行嗎？')) {
-      return;
-    }
-
-    const firstTeamName = teams.find(t => t.includes('一隊') || t.includes('防守') || t.includes('進攻')) || teams[0] || '第一隊:進攻';
-
-    // 2. Sequence order validation (Rule 4)
-    const satSequence = ['SAT_RK1', 'SAT_NG1', 'SAT_NG2', 'SAT_NG3', 'SAT_NG4'];
-    const sunSequence = ['SUN_RK1', 'SUN_NG1', 'SUN_NG2', 'SUN_NG3', 'SUN_NG4'];
     
-    let seq: string[] = [];
-    if (satSequence.includes(sessionFilter)) {
-      seq = satSequence;
-    } else if (sunSequence.includes(sessionFilter)) {
-      seq = sunSequence;
-    }
-    
-    const idx = seq.indexOf(sessionFilter);
-    if (idx > 0) {
-      // Must check if the previous session is already configured
-      const prevSession = seq[idx - 1];
-      const isPrevConfigured = players.some(p => (p.assignedSessions || []).includes(prevSession));
-      if (!isPrevConfigured) {
-        const displayPrevName = prevSession.startsWith('SAT_') 
-          ? `週六 ${prevSession.substring(4)}` 
-          : `週日 ${prevSession.substring(4)}`;
-        const displayCurrentName = sessionFilter.startsWith('SAT_') 
-          ? `週六 ${sessionFilter.substring(4)}` 
-          : `週日 ${sessionFilter.substring(4)}`;
-        alert(`一定要先編輯並分配 ${displayPrevName} 之後，才能調整 ${displayCurrentName} 的人員分配！\n請依照 RK1 -> NG1 -> NG2 -> NG3 -> NG4 優先順序進行。`);
-        return;
+    const sessionLabel = sessionFilter 
+      ? (sessionFilter.startsWith('SAT_') ? '週六 ' : '週日 ') + sessionFilter.replace('SAT_', '').replace('SUN_', '') 
+      : '當前場次';
+      
+    setConfirmConfig({
+      isOpen: true,
+      title: '確認重製當前場次隊伍',
+      message: `此操作將會重置「${sessionLabel}」的所有人員分配，將他們全部移動至【候補】隊伍。您確定要執行此操作嗎？`,
+      onConfirm: () => {
+        const updates = players.map(p => ({ id: p.id, team: '候補' }));
+        onUpdatePlayers(updates, sessionFilter);
+        showToast(`已重製 ${sessionLabel} 的所有人員分配至候補`, "success");
+        setConfirmConfig(prev => ({ ...prev, isOpen: false }));
       }
-    }
-
-    // 3. Filter candidates based on current session filter if specified
-    let candidates = [...players];
-    const isSat = sessionFilter.startsWith('SAT_');
-    const sessionKey = sessionFilter.replace('SAT_', '').replace('SUN_', '');
-    candidates = players.filter(p => {
-      const registeredSessions = isSat 
-        ? (p.satSessions || (p.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []))
-        : (p.sunSessions || (p.sunAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []));
-      return registeredSessions.includes(sessionKey);
     });
-
-    // Determine previous session key for prioritising previous backup/reserves
-    const getPrevSessionKey = (currentSession: string): string | null => {
-      if (satSequence.includes(currentSession)) {
-        const i = satSequence.indexOf(currentSession);
-        return i > 0 ? satSequence[i - 1] : null;
-      }
-      if (sunSequence.includes(currentSession)) {
-        const i = sunSequence.indexOf(currentSession);
-        return i > 0 ? sunSequence[i - 1] : null;
-      }
-      return null;
-    };
-
-    const prevSessionKey = getPrevSessionKey(sessionFilter);
-
-    const isPrevBackup = (p: Player): boolean => {
-      if (!prevSessionKey) return false;
-      
-      const prevIsSat = prevSessionKey.startsWith('SAT_');
-      const prevSessionKeyOnly = prevSessionKey.replace('SAT_', '').replace('SUN_', '');
-      const registeredSessions = prevIsSat 
-        ? (p.satSessions || (p.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []))
-        : (p.sunSessions || (p.sunAvailability === 'YES' ? ['RK1', 'SUN_NG1', 'SUN_NG2', 'SUN_NG3', 'SUN_NG4'] : [])); // fallback 
-      
-      const verifiedReg = prevIsSat 
-        ? (p.satSessions || (p.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []))
-        : (p.sunSessions || (p.sunAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []));
-
-      if (!verifiedReg.includes(prevSessionKeyOnly)) return false;
-      
-      const isAssigned = (p.assignedSessions || []).includes(prevSessionKey);
-      const teamInPrev = p.teamBySession?.[prevSessionKey] || '候補';
-      
-      return !isAssigned || teamInPrev === '候補';
-    };
-
-    // 4. Sort candidates (Rule 5 priority at the topmost)
-    candidates.sort((a, b) => {
-      if (prioritizePrevReserve && prevSessionKey) {
-        const backupA = isPrevBackup(a) ? 1 : 0;
-        const backupB = isPrevBackup(b) ? 1 : 0;
-        if (backupA !== backupB) return backupB - backupA;
-      }
-      if (prioritizeNoSelf) {
-        const nsA = a.noSelf ? 1 : 0;
-        const nsB = b.noSelf ? 1 : 0;
-        if (nsA !== nsB) return nsB - nsA;
-      }
-      if (prioritizeDc) {
-        const dcA = a.hasDc ? 1 : 0;
-        const dcB = b.hasDc ? 1 : 0;
-        if (dcA !== dcB) return dcB - dcA;
-      }
-      if (prioritizeMic) {
-        const micA = a.canMic ? 1 : 0;
-        const micB = b.canMic ? 1 : 0;
-        if (micA !== micB) return micB - micA;
-      }
-      if (prioritizePower) {
-        const pA = parsePower(a.power);
-        const pB = parsePower(b.power);
-        if (pA !== pB) return pB - pA;
-      }
-      return b.createdAt - a.createdAt;
-    });
-
-    const remainingSlots: Record<string, number> = {};
-    martialArts.forEach(ma => {
-      const count = smartMaCounts[ma.name];
-      remainingSlots[ma.name] = (count !== undefined && count !== null) ? count : 0;
-    });
-
-    const selectedIds = new Set<string>();
-
-    for (const p of candidates) {
-      const matchingMa = p.martialArts.find(maName => remainingSlots[maName] > 0);
-      if (matchingMa) {
-        selectedIds.add(p.id);
-        remainingSlots[matchingMa]--;
-      }
-    }
-
-    // 5. Map updates and submit using sessionFilter
-    const updates = candidates.map(p => ({
-      id: p.id,
-      team: selectedIds.has(p.id) ? firstTeamName : '候補'
-    }));
-
-    onUpdatePlayers(updates, sessionFilter);
-    setShowSmartAssign(false);
-  }, [players, teams, martialArts, smartMaCounts, prioritizePower, prioritizeNoSelf, prioritizeDc, prioritizeMic, prioritizePrevReserve, onUpdatePlayers, sessionFilter]);
+  }, [players, sessionFilter, onUpdatePlayers, showToast]);
 
   const displayedFilteredPlayers = useMemo(() => {
     let list = filteredPlayers;
@@ -489,49 +372,6 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
     else newSet.add(id);
     setSelectedPlayerIds(newSet);
   }, [selectedPlayerIds]);
-
-  const unassignedCount = useMemo(() => {
-    return players.filter(p => {
-      if (sessionFilter) {
-        return !(p.assignedSessions || []).includes(sessionFilter);
-      }
-      return p.team === '候補';
-    }).length;
-  }, [players, sessionFilter]);
-
-  const handleBulkAssign = useCallback(() => {
-    if (selectedPlayerIds.size === 0) return;
-    const updates = Array.from(selectedPlayerIds).map(id => ({ id, team: targetTeam }));
-    onUpdatePlayers(updates, sessionFilter);
-    setSelectedPlayerIds(new Set());
-  }, [selectedPlayerIds, targetTeam, onUpdatePlayers, sessionFilter]);
-
-  const handleAssignUnassigned = useCallback(() => {
-    const unassignedPlayers = players.filter(p => {
-      if (sessionFilter) {
-        return !(p.assignedSessions || []).includes(sessionFilter);
-      }
-      return p.team === '候補';
-    });
-    if (unassignedPlayers.length === 0) return;
-    const updates = unassignedPlayers.map(p => ({ id: p.id, team: targetTeam }));
-    onUpdatePlayers(updates, sessionFilter);
-  }, [players, targetTeam, onUpdatePlayers, sessionFilter]);
-
-  const handleBulkTeamMove = useCallback(() => {
-    const playersToMove = players.filter(p => {
-      if (sessionFilter) {
-        const assigned = p.assignedSessions || [];
-        if (!assigned.includes(sessionFilter)) {
-          return bulkSource === '候補';
-        }
-        const currentTeam = p.teamBySession?.[sessionFilter] || '第一隊:進攻';
-        return currentTeam === bulkSource;
-      }
-      return p.team === bulkSource;
-    });
-    playersToMove.forEach(p => onMovePlayer(p.id, bulkTarget, sessionFilter));
-  }, [players, bulkSource, bulkTarget, onMovePlayer, sessionFilter]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => e.preventDefault(), []);
 
@@ -693,107 +533,54 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
               </div>
             </div>
 
-            {/* Quick Assign */}
+            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-end gap-4 bg-[#020617] p-4 rounded-2xl border border-slate-800">
-              <div className="flex flex-col gap-1.5 w-full sm:w-24">
-                <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter leading-none">分組工具</span>
-                <select
-                  value={targetTeam}
-                  onChange={(e) => setTargetTeam(e.target.value)}
-                  className="bg-slate-700 border border-slate-600 text-xs font-bold rounded-lg px-2 h-9 outline-none text-white w-full"
-                >
-                  {teams.map(t => <option key={t} value={t} className="bg-slate-700">{t}</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
-                <div className="relative group">
+              <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+                <span className="text-[10px] font-black text-purple-400 uppercase tracking-tighter leading-none">隊伍操作</span>
+                <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={handleBulkAssign}
-                    disabled={selectedPlayerIds.size === 0 || isRestricted}
-                    className={`px-3 h-9 w-full text-[10px] font-black rounded-lg transition-all ${
-                      selectedPlayerIds.size > 0 && !isRestricted
-                      ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20' 
-                      : 'bg-slate-800 text-slate-600 border border-slate-700 cursor-not-allowed'
-                    }`}
+                    type="button"
+                    onClick={() => setShowSmartAssign(!showSmartAssign)}
+                    className="px-4 h-9 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    指派篩選 ({selectedPlayerIds.size})
+                    <i className="fa-solid fa-brain"></i>
+                    智能選隊
                   </button>
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg text-[10px] font-bold text-slate-300 w-max invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-2xl">
-                    指派篩選: <span className="text-blue-400 mx-1">[已勾選人員]</span>指派到<span className="text-blue-400 mx-1">[{targetTeam}]</span>
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0f172a]"></div>
-                  </div>
-                </div>
-
-                <div className="relative group">
                   <button
-                    onClick={handleAssignUnassigned}
-                    disabled={isRestricted}
-                    className={`px-3 h-9 w-full bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    type="button"
+                    onClick={handleExportPNG}
+                    className="px-4 h-9 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    指派未選 ({unassignedCount})
+                    <i className="fa-solid fa-file-image"></i>
+                    匯出隊伍 (PNG)
                   </button>
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg text-[10px] font-bold text-slate-300 w-max invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-2xl">
-                    指派未選: <span className="text-emerald-400 mx-1">[候補人員]</span>指派到<span className="text-blue-400 mx-1">[{targetTeam}]</span>
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0f172a]"></div>
-                  </div>
-                </div>
-                <div className="relative group">
                   <button
-                    onClick={onResetTeams}
+                    type="button"
+                    onClick={handleResetCurrentSessionTeams}
                     disabled={isRestricted}
-                    className={`px-3 h-9 w-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-black rounded-lg transition-all border border-slate-700 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className="px-4 h-9 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg hover:shadow-red-600/20 disabled:opacity-50 cursor-pointer"
                   >
                     重製隊伍
                   </button>
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg text-[10px] font-bold text-slate-300 w-max invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-2xl">
-                    重製隊伍: 全部人員移動到<span className="text-amber-400 mx-1">[候補]</span>, 等待重新分配
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0f172a]"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Bulk Team Move */}
-            <div className="flex flex-col sm:flex-row items-end gap-4 bg-[#020617] p-4 rounded-2xl border border-slate-800">
-              <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter leading-none">整隊遷移</span>
-                <div className="flex items-center gap-2">
-                  <select
-                    disabled={isRestricted}
-                    value={bulkSource}
-                    onChange={(e) => setBulkSource(e.target.value)}
-                    className={`bg-slate-700 border border-slate-600 text-[10px] font-black rounded-lg px-2 h-9 outline-none text-white w-20 ${isRestricted ? 'bg-slate-900 text-slate-600' : ''}`}
-                  >
-                    {teams.map(t => <option key={t} value={t} className="bg-slate-700 text-slate-100">{t}</option>)}
-                  </select>
-                  <i className="fa-solid fa-arrow-right text-slate-600 text-[10px]"></i>
-                  <select
-                    disabled={isRestricted}
-                    value={bulkTarget}
-                    onChange={(e) => setBulkTarget(e.target.value)}
-                    className={`bg-slate-700 border border-slate-600 text-[10px] font-black rounded-lg px-2 h-9 outline-none text-white w-20 ${isRestricted ? 'bg-slate-900 text-slate-600' : ''}`}
-                  >
-                    {teams.map(t => <option key={t} value={t} className="bg-slate-700 text-slate-100">{t}</option>)}
-                  </select>
-                  <div className="relative group">
-                    <button
-                      onClick={handleBulkTeamMove}
-                      disabled={isRestricted}
-                      className={`px-3 h-9 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg min-w-[70px] ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      轉移整隊
-                    </button>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg text-[10px] font-bold text-slate-300 w-max invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-2xl">
-                      轉移整隊: <span className="text-amber-400 mx-1">[{bulkSource}]</span>全部移動到<span className="text-blue-400 mx-1">[{bulkTarget}]</span>
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0f172a]"></div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
 
           </div>
         </div>
+
+        {/* Smart Assignment configs Drawer */}
+        {showSmartAssign && (
+          <SmartAssignPanel 
+            players={players}
+            teams={teams}
+            martialArts={martialArts}
+            isRestricted={isRestricted}
+            onUpdatePlayers={onUpdatePlayers}
+            currentSession={sessionFilter}
+            onSessionChange={(s) => setSessionFilter(s)}
+          />
+        )}
 
         {/* Martial Arts Filter Section */}
         <div className="flex flex-col gap-4 w-full border-t border-slate-800 pt-6">
@@ -985,6 +772,114 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
           );
         })}
       </div>
+
+      {/* Hidden export template for PNG */}
+      <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
+        <div 
+          ref={exportRef} 
+          className="w-[800px] p-8 bg-[#020617] text-white flex flex-col gap-6"
+          style={{ fontFamily: 'system-ui, sans-serif' }}
+        >
+          {/* Header */}
+          <div className="border-b border-slate-800 pb-4 flex justify-between items-end">
+            <div>
+              <h1 className="text-2xl font-black tracking-wide text-white flex items-center gap-2">
+                ⚔️ WWM 百業戰隊伍編制
+              </h1>
+              <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-widest font-bold">
+                系統自動整理輸出 ‧ {new Date().toLocaleString('zh-TW')}
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-black bg-blue-500/15 border border-blue-500/30 text-blue-400 px-3 py-1 rounded-full uppercase tracking-widest">
+                {sessionFilter ? (sessionFilter.startsWith('SAT_') ? '週六 ' : '週日 ') + sessionFilter.replace('SAT_', '').replace('SUN_', '') : '預設場次'}
+              </span>
+              <div className="text-[10px] text-slate-400 font-bold mt-1.5">
+                {sessionFilter ? SESSION_LABELS[sessionFilter.replace('SAT_', '').replace('SUN_', '')] : ''}
+              </div>
+            </div>
+          </div>
+
+          {/* Grid of nonempty teams */}
+          <div className="grid grid-cols-2 gap-4">
+            {teams
+              .filter(teamName => {
+                const teamData = groupedPlayers[teamName] || { active: {}, inactive: {} };
+                const activePlayersCount = Object.values(teamData.active).flat().length;
+                const inactivePlayersCount = Object.values(teamData.inactive).flat().length;
+                return activePlayersCount + inactivePlayersCount > 0;
+              })
+              .map(teamName => {
+                const teamData = groupedPlayers[teamName];
+                const activePlayers = Object.values(teamData.active).flat() as Player[];
+                const inactivePlayers = Object.values(teamData.inactive).flat() as Player[];
+                const config = teamDescriptions[teamName] || { name: teamName, role: '', mission: '', details: '' };
+
+                return (
+                  <div key={teamName} className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 shadow-lg">
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="font-black text-sm tracking-widest text-[#60a5fa]">{teamName}</span>
+                      <span className="text-[11px] font-black bg-slate-900 border border-slate-800 rounded-full py-0.5 px-2 text-slate-400">
+                        {activePlayers.length + inactivePlayers.length} 人
+                      </span>
+                    </div>
+
+                    {/* Mission */}
+                    {config.mission && (
+                      <div className="p-2.5 bg-blue-500/5 border border-blue-500/10 rounded-lg">
+                        <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest block mb-1">主要任務</span>
+                        <p className="text-[9px] text-slate-300 font-medium leading-relaxed font-sans min-h-[16px] whitespace-pre-wrap">
+                          {config.mission}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Active List */}
+                    <div className="space-y-3">
+                      {(Object.entries(teamData.active) as [string, Player[]][])
+                        .sort(([aKey], [bKey]) => getMaGroupPriority(aKey) - getMaGroupPriority(bKey))
+                        .map(([maKey, members]) => (
+                          <div key={maKey} className="space-y-1">
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-l-2 border-slate-700 pl-2">
+                              {maKey} ({members.length}人)
+                            </div>
+                            <div className="text-[11px] font-bold text-slate-200 pl-2.5 leading-relaxed">
+                              {members.map(p => p.gameId).join('、')}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+
+                    {/* Inactive List */}
+                    {inactivePlayers.length > 0 && (
+                      <div className="pt-2 border-t border-slate-800/60 mt-1 opacity-50">
+                        <div className="text-[9px] font-black text-red-500 uppercase tracking-widest mb-1 pl-1">
+                          無法參加人員
+                        </div>
+                        <div className="text-[11px] font-bold text-slate-400 pl-1.5 leading-relaxed">
+                          {inactivePlayers.map(p => p.gameId).join('、')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+
+          <div className="border-t border-slate-800 pt-3 flex justify-between items-center text-[9px] text-slate-500 font-bold tracking-wider">
+            <span>WWM 百業戰 ‧ 戰力指派圖</span>
+            <span>由系統安全產出，無涉及個人隱私敏感資訊</span>
+          </div>
+        </div>
+      </div>
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        onConfirm={confirmConfig.onConfirm}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

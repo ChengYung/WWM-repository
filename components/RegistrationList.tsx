@@ -6,6 +6,7 @@ import { useMartialArtsFilter } from '../hooks/useMartialArtsFilter';
 import { SESSION_LABELS } from '../constants';
 import { useToast } from './Toast';
 import { ConfirmModal } from './ConfirmModal';
+import { SmartAssignPanel } from './SmartAssignPanel';
 
 interface PlayerRowProps {
   player: Player;
@@ -26,6 +27,23 @@ interface PlayerRowProps {
 const PlayerRow = memo(({ 
   player, isEditing, isNew, isFiltered, selected, onToggleSelect, onStartEdit, onEdit, onDelete, onUpdateTeam, teams, martialArts, isRestricted 
 }: PlayerRowProps) => {
+  const [showAssignDropdown, setShowAssignDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowAssignDropdown(false);
+      }
+    };
+    if (showAssignDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAssignDropdown]);
+
   return (
     <tr 
       id={`player-row-${player.id}`}
@@ -380,8 +398,8 @@ const PlayerRow = memo(({
           })()}
         </div>
       </td>
-      <td className="p-4" onClick={(e) => e.stopPropagation()} title="非管理人員請勿操作">
-        <div className="flex flex-wrap gap-1.5 items-center justify-start min-h-[30px]">
+      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-wrap items-center gap-1.5 min-h-[36px]">
           {/* Assigned Sessions */}
           {(player.assignedSessions || []).map(as => {
             const isSat = as.startsWith('SAT_');
@@ -414,7 +432,7 @@ const PlayerRow = memo(({
             );
           })}
           
-          {/* Select dropdown to assign new sessions */}
+          {/* Multi-select dropdown to assign sessions */}
           {(() => {
             const satS = player.satSessions || (player.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []);
             const sunS = player.sunSessions || (player.sunAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []);
@@ -422,40 +440,92 @@ const PlayerRow = memo(({
             satS.forEach(s => available.push(`SAT_${s}`));
             sunS.forEach(s => available.push(`SUN_${s}`));
             const assigned = player.assignedSessions || [];
-            const unassigned = available.filter(s => !assigned.includes(s));
             
-            if (unassigned.length > 0) {
+            if (available.length > 0) {
               return (
-                <select
-                  disabled={isRestricted}
-                  value=""
-                  onChange={(e) => {
-                    if (isRestricted || !e.target.value) return;
-                    const val = e.target.value;
-                    const newAssigned = [...assigned, val];
-                    const newTeamBySession = { ...player.teamBySession };
-                    if (!newTeamBySession[val]) {
-                      newTeamBySession[val] = '第一隊:進攻';
-                    }
-                    onEdit({
-                      ...player,
-                      assignedSessions: newAssigned,
-                      teamBySession: newTeamBySession
-                    });
-                  }}
-                  className="bg-[#1e293b] text-[10px] border border-blue-500/30 rounded px-2 py-0.5 outline-none text-blue-400 font-bold cursor-pointer"
-                >
-                  <option value="">+ 指派</option>
-                  {unassigned.map(s => {
-                    const isSat = s.startsWith('SAT_');
-                    const name = s.replace('SAT_', '').replace('SUN_', '');
-                    return (
-                      <option key={s} value={s}>
-                        {isSat ? '週六' : '週日'} {name}
-                      </option>
-                    );
-                  })}
-                </select>
+                <div className="flex items-center gap-1.5" ref={dropdownRef}>
+                  <div className="relative inline-block">
+                    <button
+                      type="button"
+                      disabled={isRestricted}
+                      onClick={() => setShowAssignDropdown(!showAssignDropdown)}
+                      className="bg-[#1e293b] hover:bg-slate-800 text-[10px] border border-blue-500/30 rounded px-2 py-0.5 outline-none text-blue-400 font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      <i className="fa-solid fa-plus text-[8px]"></i>
+                      指派
+                    </button>
+                    {showAssignDropdown && (
+                      <div className="absolute left-0 mt-1.5 w-44 bg-[#0a0f1d] border border-slate-800 rounded-xl shadow-2xl p-2 z-30 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                        <div className="px-1.5 py-1 border-b border-slate-800/60 mb-1">
+                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">選擇指派場次</span>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto space-y-0.5">
+                          {available.map(s => {
+                            const isSat = s.startsWith('SAT_');
+                            const name = s.replace('SAT_', '').replace('SUN_', '');
+                            const isSelected = assigned.includes(s);
+                            return (
+                              <label
+                                key={s}
+                                className={`flex items-center gap-2 p-1.5 hover:bg-slate-800/40 rounded-lg cursor-pointer transition-all select-none text-[10px] font-bold ${
+                                  isSelected ? 'text-blue-400 bg-blue-500/5' : 'text-slate-400'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    if (isRestricted) return;
+                                    let newAssigned = [...assigned];
+                                    const newTeamBySession = { ...player.teamBySession };
+                                    if (isSelected) {
+                                      newAssigned = newAssigned.filter(item => item !== s);
+                                      delete newTeamBySession[s];
+                                    } else {
+                                      newAssigned.push(s);
+                                      if (!newTeamBySession[s]) {
+                                        newTeamBySession[s] = '第一隊:進攻';
+                                      }
+                                    }
+                                    onEdit({
+                                      ...player,
+                                      assignedSessions: newAssigned,
+                                      teamBySession: newTeamBySession
+                                    });
+                                  }}
+                                  className="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                                />
+                                <span>
+                                  {isSat ? '六' : '日'}: {name}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {assigned.length > 0 && (
+                    <button
+                      type="button"
+                      disabled={isRestricted}
+                      onClick={() => {
+                        if (isRestricted) return;
+                        onEdit({
+                          ...player,
+                          assignedSessions: [],
+                          teamBySession: {}
+                        });
+                      }}
+                      className="bg-red-500/10 hover:bg-red-500 hover:text-white text-red-550 text-[10px] border border-red-500/20 rounded px-2 py-0.5 font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                      title="一鍵清除此人員的所有分配場次"
+                    >
+                      <i className="fa-solid fa-eraser text-[8px]"></i>
+                      清除
+                    </button>
+                  )}
+                </div>
               );
             }
             return null;
@@ -565,17 +635,8 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
   const [showSmartAssign, setShowSmartAssign] = useState(false);
-  const [smartMaCounts, setSmartMaCounts] = useState<Record<string, number>>({});
-  const [smartActiveMas, setSmartActiveMas] = useState<string[]>([
-    "無名劍法", "嗟夫刀法", "青山執筆", "明川藥典"
-  ]);
   const [smartTargetSession, setSmartTargetSession] = useState<string>('SAT_RK1');
-  const [prioritizePower, setPrioritizePower] = useState(true);
-  const [prioritizeNoSelf, setPrioritizeNoSelf] = useState(false);
-  const [prioritizeDc, setPrioritizeDc] = useState(false);
-  const [prioritizeMic, setPrioritizeMic] = useState(false);
-  const [prioritizePrevReserve, setPrioritizePrevReserve] = useState(false);
-  
+
   const {
     maFilter,
     setMaFilter,
@@ -595,37 +656,6 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
     getMatchingPlayerIds,
     getDeselectPlayerIds
   } = useMartialArtsFilter(players, teams);
-
-  useEffect(() => {
-    if (martialArts && martialArts.length > 0) {
-      // Check if we should initialize active MAs from actual list
-      const actualNames = martialArts.map(m => m.name);
-      setSmartActiveMas(prev => {
-        const isHardcodedDefault = prev.length === 4 && 
-          prev.includes("無名劍法") && 
-          prev.includes("嗟夫刀法") && 
-          prev.includes("青山執筆") && 
-          prev.includes("明川藥典");
-        if (isHardcodedDefault) {
-          const hasMismatch = prev.some(name => !actualNames.includes(name));
-          if (hasMismatch) {
-            return actualNames.slice(0, 4);
-          }
-        }
-        return prev;
-      });
-    }
-  }, [martialArts]);
-
-  useEffect(() => {
-    if (martialArts && Object.keys(smartMaCounts).length === 0) {
-      const init: Record<string, number> = {};
-      martialArts.forEach(ma => {
-        init[ma.name] = 0;
-      });
-      setSmartMaCounts(init);
-    }
-  }, [martialArts, smartMaCounts]);
 
   const parsePower = (powerStr?: string): number => {
     if (!powerStr) return 0;
@@ -671,163 +701,6 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
     }
     return list;
   }, [filteredPlayers, players, maFilter, filterNoSelf, filterDc, filterMic]);
-
-  const handleExecuteSmartAssign = useCallback(() => {
-    // 3. Filter candidates based on target session if specified
-    let candidatesList = [...players];
-    if (smartTargetSession !== 'default') {
-      const isSat = smartTargetSession.startsWith('SAT_');
-      const sessionKey = smartTargetSession.replace('SAT_', '').replace('SUN_', '');
-      candidatesList = players.filter(p => {
-        const registeredSessions = isSat 
-          ? (p.satSessions || (p.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []))
-          : (p.sunSessions || (p.sunAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []));
-        return registeredSessions.includes(sessionKey);
-      });
-    }
-
-    const firstTeamName = teams.find(t => t.includes('一隊') || t.includes('防守') || t.includes('進攻')) || teams[0] || '第一隊:進攻';
-
-    // Determine previous session key for prioritizing previous backup/reserves
-    const getPrevSessionKey = (currentSession: string): string | null => {
-      const satSequence = ['SAT_RK1', 'SAT_NG1', 'SAT_NG2', 'SAT_NG3', 'SAT_NG4'];
-      const sunSequence = ['SUN_RK1', 'SUN_NG1', 'SUN_NG2', 'SUN_NG3', 'SUN_NG4'];
-      if (satSequence.includes(currentSession)) {
-        const idx = satSequence.indexOf(currentSession);
-        return idx > 0 ? satSequence[idx - 1] : null;
-      }
-      if (sunSequence.includes(currentSession)) {
-        const idx = sunSequence.indexOf(currentSession);
-        return idx > 0 ? sunSequence[idx - 1] : null;
-      }
-      return null;
-    };
-
-    const prevSessionKey = getPrevSessionKey(smartTargetSession);
-
-    const isPrevBackup = (p: Player): boolean => {
-      if (!prevSessionKey) return false;
-      
-      const isSat = prevSessionKey.startsWith('SAT_');
-      const sessionKey = prevSessionKey.replace('SAT_', '').replace('SUN_', '');
-      const registeredSessions = isSat 
-        ? (p.satSessions || (p.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []))
-        : (p.sunSessions || (p.sunAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []));
-      
-      if (!registeredSessions.includes(sessionKey)) return false;
-      
-      const isAssigned = (p.assignedSessions || []).includes(prevSessionKey);
-      const teamInPrev = p.teamBySession?.[prevSessionKey] || '候補';
-      
-      return !isAssigned || teamInPrev === '候補';
-    };
-
-    // 4. Sort candidates (Rule 5 priority at the topmost)
-    candidatesList.sort((a, b) => {
-      if (prioritizePrevReserve && prevSessionKey) {
-        const backupA = isPrevBackup(a) ? 1 : 0;
-        const backupB = isPrevBackup(b) ? 1 : 0;
-        if (backupA !== backupB) return backupB - backupA;
-      }
-      if (prioritizeNoSelf) {
-        const nsA = a.noSelf ? 1 : 0;
-        const nsB = b.noSelf ? 1 : 0;
-        if (nsA !== nsB) return nsB - nsA;
-      }
-      if (prioritizeDc) {
-        const dcA = a.hasDc ? 1 : 0;
-        const dcB = b.hasDc ? 1 : 0;
-        if (dcA !== dcB) return dcB - dcA;
-      }
-      if (prioritizeMic) {
-        const micA = a.canMic ? 1 : 0;
-        const micB = b.canMic ? 1 : 0;
-        if (micA !== micB) return micB - micA;
-      }
-      if (prioritizePower) {
-        const pA = parsePower(a.power);
-        const pB = parsePower(b.power);
-        if (pA !== pB) return pB - pA;
-      }
-      return b.createdAt - a.createdAt;
-    });
-
-    const remainingSlots: Record<string, number> = {};
-    martialArts.forEach(ma => {
-      const count = smartMaCounts[ma.name];
-      remainingSlots[ma.name] = (count !== undefined && count !== null) ? count : 0;
-    });
-
-    const selectedIds = new Set<string>();
-
-    for (const p of candidatesList) {
-      // Only allocate slots for active martial arts
-      const matchingMa = p.martialArts.find(maName => smartActiveMas.includes(maName) && remainingSlots[maName] > 0);
-      if (matchingMa) {
-        selectedIds.add(p.id);
-        remainingSlots[matchingMa]--;
-      }
-    }
-
-    const updates = candidatesList.map(p => ({
-      id: p.id,
-      team: selectedIds.has(p.id) ? firstTeamName : '候補'
-    }));
-
-    onUpdatePlayers(updates, smartTargetSession === 'default' ? null : smartTargetSession);
-    setShowSmartAssign(false);
-  }, [players, teams, martialArts, smartMaCounts, smartActiveMas, smartTargetSession, prioritizePower, prioritizeNoSelf, prioritizeDc, prioritizeMic, prioritizePrevReserve, onUpdatePlayers]);
-
-  const handleRunSmartAssign = useCallback(() => {
-    if (players.length === 0) return;
-
-    // 1. Validate total selected counts do not exceed 30 (Rule 1)
-    const totalCount = smartActiveMas.reduce((sum, maName) => sum + (smartMaCounts[maName] || 0), 0);
-    if (totalCount > 30) {
-      showToast("武學人數的總和不能超過30人，已超過百業戰人數上限！", "error");
-      return;
-    }
-
-    // 2. Sequence order validation (Rule 4)
-    if (smartTargetSession !== 'default') {
-      const satSequence = ['SAT_RK1', 'SAT_NG1', 'SAT_NG2', 'SAT_NG3', 'SAT_NG4'];
-      const sunSequence = ['SUN_RK1', 'SUN_NG1', 'SUN_NG2', 'SUN_NG3', 'SUN_NG4'];
-      
-      let seq: string[] = [];
-      if (satSequence.includes(smartTargetSession)) {
-        seq = satSequence;
-      } else if (sunSequence.includes(smartTargetSession)) {
-        seq = sunSequence;
-      }
-      
-      const idx = seq.indexOf(smartTargetSession);
-      if (idx > 0) {
-        // Must check if the previous session is already configured
-        const prevSession = seq[idx - 1];
-        const isPrevConfigured = players.some(p => (p.assignedSessions || []).includes(prevSession));
-        if (!isPrevConfigured) {
-          const displayPrevName = prevSession.startsWith('SAT_') 
-            ? `週六 ${prevSession.substring(4)}` 
-            : `週日 ${prevSession.substring(4)}`;
-          const displayCurrentName = smartTargetSession.startsWith('SAT_') 
-            ? `週六 ${smartTargetSession.substring(4)}` 
-            : `週日 ${smartTargetSession.substring(4)}`;
-          showToast(`一定要先編輯並分配 ${displayPrevName} 之後，才能調整 ${displayCurrentName} 的人員分配！\n請依照 RK1 -> NG1 -> NG2 -> NG3 -> NG4 優先順序進行。`, "error");
-          return;
-        }
-      }
-    }
-
-    setConfirmConfig({
-      isOpen: true,
-      title: '確認執行智能選隊',
-      message: '執行此操作後，將會根據篩選條件與各武學配置人數，直接修改並覆蓋當前選定場次的各玩家分配隊伍。確定要執行嗎？',
-      onConfirm: () => {
-        handleExecuteSmartAssign();
-        setConfirmConfig(prev => ({ ...prev, isOpen: false }));
-      }
-    });
-  }, [players, smartActiveMas, smartMaCounts, smartTargetSession, handleExecuteSmartAssign, showToast]);
 
   const handleExportExcel = useCallback(() => {
     // 1. Summary sheet data
@@ -1117,207 +990,47 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
             {/* Smart Allocation Trigger */}
             <div className="flex flex-col sm:flex-row items-end gap-4 bg-[#020617] p-4 rounded-2xl border border-slate-800">
               <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                <span className="text-[10px] font-black text-purple-400 uppercase tracking-tighter leading-none">配置隊伍</span>
-                <button
-                  onClick={() => setShowSmartAssign(!showSmartAssign)}
-                  className={`px-4 h-9 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg flex items-center justify-center gap-1.5 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <i className="fa-solid fa-brain"></i>
-                  智能選隊
-                </button>
+                <span className="text-[10px] font-black text-purple-400 uppercase tracking-tighter leading-none">配置與匯出</span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSmartAssign(!showSmartAssign)}
+                    className={`px-4 h-9 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <i className="fa-solid fa-brain"></i>
+                    智能選隊
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportExcel}
+                    className="px-4 h-9 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-file-excel"></i>
+                    輸出EXCEL(XLSX)
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+
         </div>
 
         {/* Smart Assignment configs Drawer */}
         {showSmartAssign && (
-          <div className="mt-4 p-5 bg-[#020617] rounded-3xl border border-slate-800 space-y-4 animate-in slide-in-from-top-4 duration-300">
-            <h4 className="text-xs font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
-              <i className="fa-solid fa-gears text-purple-500"></i> 智能選隊配置
-            </h4>
-
-            {/* Target Session Selector dropdown */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#0f172a] p-4 rounded-xl border border-slate-800">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">分配之目標場次 (預設更新 [分配隊伍] 欄位)</span>
-                <select
-                  value={smartTargetSession}
-                  onChange={(e) => setSmartTargetSession(e.target.value)}
-                  className="bg-[#020617] border border-[#1e293b] text-xs font-bold rounded-lg px-3 py-2 outline-none text-white focus:border-purple-500 w-full"
-                >
-                  <optgroup label="週六場次">
-                    <option value="SAT_RK1">週六 RK1 (聯賽 2030)</option>
-                    <option value="SAT_NG1">週六 NG1 (配對賽 2130)</option>
-                    <option value="SAT_NG2">週六 NG2 (配對賽 2155)</option>
-                    <option value="SAT_NG3">週六 NG3 (配對賽 2230)</option>
-                    <option value="SAT_NG4">週六 NG4 (配對賽 2255)</option>
-                  </optgroup>
-                  <optgroup label="週日場次">
-                    <option value="SUN_RK1">週日 RK1 (聯賽 2030)</option>
-                    <option value="SUN_NG1">週日 NG1 (配對賽 2130)</option>
-                    <option value="SUN_NG2">週日 NG2 (配對賽 2155)</option>
-                    <option value="SUN_NG3">週日 NG3 (配對賽 2230)</option>
-                    <option value="SUN_NG4">週日 NG4 (配對賽 2255)</option>
-                  </optgroup>
-                </select>
-              </div>
-              <div className="flex flex-col justify-end">
-                <span className="text-[10px] text-slate-500">
-                  選擇特定目標場次執行「智能選隊」將會篩選該場次有報名的玩家，並在篩選完成後直接將入選玩家指派出賽該場次。
-                </span>
-              </div>
-            </div>
-            
-            {/* Martial Arts Configurations */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <label className="text-[10px] font-bold text-slate-400">各武學配置人數 (留空或 0 代表不限制)</label>
-                
-                {/* Dynamic add dropdown */}
-                {martialArts.some(ma => !smartActiveMas.includes(ma.name)) && (
-                  <select
-                    className="bg-[#0f172a] border border-slate-800 text-[10px] rounded-lg px-2.5 py-1.5 outline-none text-slate-300 font-bold hover:border-slate-700 transition-all cursor-pointer"
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val && !smartActiveMas.includes(val)) {
-                        setSmartActiveMas(prev => [...prev, val]);
-                        setSmartMaCounts(prev => ({ ...prev, [val]: 0 }));
-                      }
-                      e.target.value = '';
-                    }}
-                  >
-                    <option value="">+ 新增篩選武學</option>
-                    {martialArts.filter(ma => !smartActiveMas.includes(ma.name)).map(ma => (
-                      <option key={ma.name} value={ma.name}>{ma.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {smartActiveMas.map(maName => {
-                  const ma = martialArts.find(m => m.name === maName);
-                  if (!ma) return null;
-                  return (
-                    <div key={ma.name} className="flex items-center justify-between gap-2 p-2 bg-[#0f172a] rounded-xl border border-slate-800 hover:border-slate-700 transition-all group">
-                      <span className="text-[10px] font-bold text-slate-300 truncate flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ma.color }}></span>
-                        {ma.name}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          min="0"
-                          value={smartMaCounts[ma.name] === undefined ? '' : smartMaCounts[ma.name]}
-                          onChange={(e) => {
-                            const val = e.target.value === '' ? '' : parseInt(e.target.value) || 0;
-                            setSmartMaCounts(prev => ({ ...prev, [ma.name]: val === '' ? 0 : val }));
-                          }}
-                          className="w-12 p-1 text-center bg-[#020617] border border-[#1e293b] text-[10px] font-black text-white rounded-lg outline-none focus:border-purple-500"
-                        />
-                        <button
-                          onClick={() => {
-                            setSmartActiveMas(prev => prev.filter(name => name !== ma.name));
-                          }}
-                          className="text-slate-500 hover:text-red-400 p-1 text-[10px] transition-colors"
-                          title="移除此武學篩選"
-                        >
-                          <i className="fa-solid fa-xmark"></i>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-               <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
-                 <input
-                   type="checkbox"
-                   checked={prioritizePower}
-                   onChange={(e) => setPrioritizePower(e.target.checked)}
-                   className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                 />
-                 <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
-                   <i className="fa-solid fa-bolt text-yellow-500"></i> 優先安排戰力指數高
-                 </span>
-               </label>
-
-               <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
-                 <input
-                   type="checkbox"
-                   checked={prioritizeNoSelf}
-                   onChange={(e) => setPrioritizeNoSelf(e.target.checked)}
-                   className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                 />
-                 <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
-                   <i className="fa-solid fa-trophy text-yellow-500"></i> 優先安排無我
-                 </span>
-               </label>
-
-               <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
-                 <input
-                   type="checkbox"
-                   checked={prioritizeDc}
-                   onChange={(e) => setPrioritizeDc(e.target.checked)}
-                   className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                 />
-                 <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
-                   <i className="fa-brands fa-discord text-indigo-400"></i> 優先安排有 DC
-                 </span>
-               </label>
-
-               <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]">
-                 <input
-                   type="checkbox"
-                   checked={prioritizeMic}
-                   onChange={(e) => setPrioritizeMic(e.target.checked)}
-                   className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                 />
-                 <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
-                   <i className="fa-solid fa-microphone text-green-400"></i> 優先安排可開 Mic
-                 </span>
-               </label>
-
-               <label className="flex items-center gap-2 p-2.5 bg-[#0f172a] hover:bg-slate-850 rounded-xl cursor-pointer transition-all border border-[#1e293b]" title="適用於 NG 場次，自動將上一場被列為候補(或沒上場)的報名玩家提到最前排優先上場">
-                 <input
-                   type="checkbox"
-                   checked={prioritizePrevReserve}
-                   onChange={(e) => setPrioritizePrevReserve(e.target.checked)}
-                   className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                 />
-                 <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
-                   <i className="fa-solid fa-redo text-purple-400 animate-spin-slow"></i> 上一場候補優先上場
-                 </span>
-               </label>
-             </div>
-
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
-              <span className="text-[10px] text-slate-500">
-                符合各選取條件的玩家將被指派分配到 <span className="text-purple-400 font-bold">第一隊:進攻</span>，其餘未入選者歸類到 <span className="text-yellow-500 font-bold">候補</span> 隊伍。
-              </span>
-              <button
-                disabled={isRestricted}
-                onClick={handleRunSmartAssign}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-[11px] rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all disabled:opacity-55"
-              >
-                執行
-              </button>
-            </div>
-          </div>
+          <SmartAssignPanel 
+            players={players}
+            teams={teams}
+            martialArts={martialArts}
+            isRestricted={isRestricted}
+            onUpdatePlayers={(updates, s) => onUpdatePlayers(updates, s)}
+            currentSession={smartTargetSession}
+            onSessionChange={(s) => setSmartTargetSession(s)}
+          />
         )}
 
-      <div className="flex justify-between items-center pt-4 border-t border-slate-800/50">
-          <button 
-            onClick={handleExportExcel}
-            className="text-[10px] font-black text-emerald-400 hover:text-emerald-350 uppercase tracking-widest transition-colors flex items-center gap-2"
-          >
-            <i className="fa-solid fa-file-excel"></i> Export Excel (.xlsx)
-          </button>
+      <div className="flex justify-end items-center pt-4 border-t border-slate-800/50">
           {!isRestricted && (
-            <button onClick={onClearPlayers} className="text-[10px] font-black text-red-500/70 hover:text-red-500 uppercase tracking-widest transition-colors flex items-center gap-2">
+            <button onClick={onClearPlayers} className="text-[10px] font-black text-red-500/70 hover:text-red-500 uppercase tracking-widest transition-colors flex items-center gap-2 cursor-pointer">
                 <i className="fa-solid fa-trash-can"></i> 清除整張名單
             </button>
           )}
