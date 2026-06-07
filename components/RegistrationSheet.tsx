@@ -91,50 +91,103 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Registration Form */}
-      <section className="bg-[#0f172a] p-6 rounded-2xl shadow-2xl border border-slate-800">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold flex items-center gap-2 text-slate-100">
-            <i className="fa-solid fa-user-plus text-blue-500"></i>
+      <section className="bg-[#0f172a] p-4 rounded-2xl shadow-2xl border border-slate-800 hover:border-slate-800/80 transition-all">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-base font-bold flex items-center gap-2 text-slate-100">
+            <i className="fa-solid fa-user-plus text-blue-500 text-sm"></i>
             報名登記
           </h2>
         </div>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-3 space-y-2">
-            <label className="text-sm font-bold text-slate-400">遊戲名稱 *</label>
-            <input
-              type="text"
-              value={gameId}
-              onChange={(e) => setGameId(e.target.value)}
-              disabled={isRestricted}
-              placeholder={isRestricted ? "此專案已鎖定" : "請輸入遊戲名稱"}
-              className={`w-full p-2.5 bg-[#020617] text-slate-100 font-bold rounded-lg border border-slate-700 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
-            />
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Left Column: Game Name, Combat Evaluation, and Communication Settings */}
+          <div className="lg:col-span-6 flex flex-col gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400">遊戲名稱 *</label>
+                <input
+                  type="text"
+                  value={gameId}
+                  onChange={(e) => setGameId(e.target.value)}
+                  disabled={isRestricted}
+                  placeholder={isRestricted ? "此專案已鎖定" : "請輸入遊戲名稱"}
+                  className={`w-full p-2 bg-[#020617] text-slate-100 text-xs font-bold rounded-lg border border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400">戰力指數 (選填)</label>
+                <input
+                  type="text"
+                  value={power}
+                  onChange={(e) => setPower(e.target.value)}
+                  disabled={isRestricted}
+                  placeholder={isRestricted ? "此專案已鎖定" : "例如: 3.093鵝"}
+                  className={`w-full p-2 bg-[#020617] text-slate-100 text-xs font-bold rounded-lg border border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-400">通訊與狀態設定</label>
+              <div className="flex flex-col gap-1.5 bg-[#020617] p-2 rounded-xl border border-slate-800">
+                <label className="flex items-center gap-2 px-2 py-1.5 bg-[#0f172a] hover:bg-slate-800/30 rounded-lg cursor-pointer transition-all border border-slate-800/60">
+                  <input
+                    type="checkbox"
+                    checked={noSelf}
+                    onChange={(e) => setNoSelf(e.target.checked)}
+                    disabled={isRestricted}
+                    className="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                  />
+                  <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5 selection:bg-transparent">
+                    <i className="fa-solid fa-trophy text-yellow-500 text-xs"></i>
+                    是否無我 (勾選為無我)
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 px-2 py-1.5 bg-[#0f172a] hover:bg-slate-800/30 rounded-lg cursor-pointer transition-all border border-slate-800/60">
+                  <input
+                    type="checkbox"
+                    checked={hasDc}
+                    onChange={(e) => setHasDc(e.target.checked)}
+                    disabled={isRestricted}
+                    className="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                  />
+                  <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5 selection:bg-transparent">
+                    <i className="fa-brands fa-discord text-indigo-400 text-xs"></i>
+                    是否有 Discord (DC)
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 px-2 py-1.5 bg-[#0f172a] hover:bg-slate-800/30 rounded-lg cursor-pointer transition-all border border-slate-800/60">
+                  <input
+                    type="checkbox"
+                    checked={canMic}
+                    onChange={(e) => setCanMic(e.target.checked)}
+                    disabled={isRestricted}
+                    className="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
+                  />
+                  <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5 selection:bg-transparent">
+                    <i className="fa-solid fa-microphone text-green-400 text-xs"></i>
+                    是否可開麥克風 (開Mic)
+                  </span>
+                </label>
+              </div>
+            </div>
           </div>
 
-          <div className="lg:col-span-3 space-y-2">
-            <label className="text-sm font-bold text-slate-400">戰力指數 (選填)</label>
-            <input
-              type="text"
-              value={power}
-              onChange={(e) => setPower(e.target.value)}
-              disabled={isRestricted}
-              placeholder={isRestricted ? "此專案已鎖定" : "例如: 3.093鵝"}
-              className={`w-full p-2.5 bg-[#020617] text-slate-100 font-bold rounded-lg border border-slate-700 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
-            />
-          </div>
-
-          <div className="lg:col-span-6 space-y-2">
-            <label className="text-sm font-bold text-slate-400">武學選擇 (可多選)</label>
-            <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 bg-[#020617] p-3 rounded-xl border border-slate-800 max-h-[160px] overflow-y-auto ${isRestricted ? 'opacity-50 grayscale' : ''}`}>
+          {/* Right Column: Martial Arts Selection */}
+          <div className="lg:col-span-6 flex flex-col">
+            <label className="text-xs font-bold text-slate-400 mb-1">武學選擇 (可多選)</label>
+            <div className={`grid grid-cols-2 md:grid-cols-3 gap-1.5 bg-[#020617] p-2 rounded-xl border border-slate-800 flex-1 min-h-[170px] max-h-[170px] overflow-y-auto ${isRestricted ? 'opacity-50 grayscale' : ''}`}>
               {martialArts.map(ma => (
                 <label 
                   key={ma.name} 
-                  className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer border transition-all ${
+                  className={`flex items-center gap-1.5 p-1.5 rounded-lg cursor-pointer border transition-all ${
                     selectedMAs.includes(ma.name) 
-                    ? 'bg-blue-600/20 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.1)]' 
-                    : 'bg-[#0f172a] border-slate-800 hover:border-slate-600'
+                    ? 'bg-blue-600/15 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.1)]' 
+                    : 'bg-[#0f172a] border-slate-850 hover:border-slate-650'
                   } ${isRestricted ? 'cursor-not-allowed' : ''}`}
                 >
                   <input
@@ -144,8 +197,8 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                     disabled={isRestricted}
                     className="hidden"
                   />
-                  <span className="w-3 h-3 rounded-full shadow-inner shrink-0" style={{ backgroundColor: ma.color }}></span>
-                  <span className={`text-[10px] font-bold truncate ${selectedMAs.includes(ma.name) ? 'text-blue-300' : 'text-slate-400'}`}>
+                  <span className="w-2.5 h-2.5 rounded-full shadow-inner shrink-0" style={{ backgroundColor: ma.color }}></span>
+                  <span className={`text-[9.5px] font-bold truncate ${selectedMAs.includes(ma.name) ? 'text-blue-300' : 'text-slate-400'}`}>
                     {ma.name}
                   </span>
                 </label>
@@ -153,13 +206,13 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
             </div>
           </div>
 
-          <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3 bg-indigo-950/15 p-4 rounded-xl border border-indigo-500/20 shadow-md">
-              <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5 uppercase tracking-wide">
-                <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-lg shadow-indigo-500/50"></span>
+          <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2 bg-indigo-950/10 p-3 rounded-xl border border-indigo-500/15 shadow">
+              <label className="text-[11px] font-bold text-indigo-300 flex items-center gap-1 uppercase tracking-wide">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow shadow-indigo-500/50 animate-pulse"></span>
                 週六場次 (預設全選，可點擊取消)
               </label>
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className="grid grid-cols-5 gap-1">
                 {['RK1', 'NG1', 'NG2', 'NG3', 'NG4'].map(sessionKey => {
                   const isSelected = selectedSatSessions.includes(sessionKey);
                   return (
@@ -173,18 +226,18 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                           prev.includes(sessionKey) ? prev.filter(s => s !== sessionKey) : [...prev, sessionKey]
                         );
                       }}
-                      className={`py-2 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 select-none ${
+                      className={`py-1.5 rounded-lg border flex flex-col items-center justify-center transition-all duration-150 select-none ${
                         isSelected
-                        ? 'bg-indigo-600 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.35)] scale-[1.03]'
-                        : 'bg-[#020617] border-slate-800 hover:border-slate-700'
+                        ? 'bg-indigo-600 border-indigo-500 shadow scale-[1.02]'
+                        : 'bg-[#020617] border-slate-800/80 hover:border-slate-700'
                       }`}
                     >
-                      <span className={`text-[11px] font-black ${
+                      <span className={`text-[10px] font-black ${
                         sessionKey === 'RK1' 
                           ? (isSelected ? 'text-yellow-300' : 'text-amber-500/70 hover:text-amber-400')
                           : (isSelected ? 'text-cyan-200' : 'text-cyan-500/70 hover:text-cyan-400')
                       }`}>{sessionKey}</span>
-                      <span className={`text-[8px] font-medium opacity-70 tracking-wider ${
+                      <span className={`text-[7px] font-bold opacity-70 tracking-wider ${
                         sessionKey === 'RK1' 
                           ? (isSelected ? 'text-yellow-400/90' : 'text-amber-600/70')
                           : (isSelected ? 'text-cyan-300/90' : 'text-cyan-600/70')
@@ -197,12 +250,12 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
               </div>
             </div>
 
-            <div className="space-y-3 bg-teal-950/15 p-4 rounded-xl border border-teal-500/20 shadow-md">
-              <label className="text-xs font-bold text-teal-300 flex items-center gap-1.5 uppercase tracking-wide">
-                <span className="w-2 h-2 rounded-full bg-teal-500 shadow-lg shadow-teal-500/50"></span>
+            <div className="space-y-2 bg-teal-950/10 p-3 rounded-xl border border-teal-500/15 shadow">
+              <label className="text-[11px] font-bold text-teal-300 flex items-center gap-1 uppercase tracking-wide">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shadow shadow-teal-500/50 animate-pulse"></span>
                 週日場次 (預設全選，可點擊取消)
               </label>
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className="grid grid-cols-5 gap-1">
                 {['RK1', 'NG1', 'NG2', 'NG3', 'NG4'].map(sessionKey => {
                   const isSelected = selectedSunSessions.includes(sessionKey);
                   return (
@@ -216,18 +269,18 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                           prev.includes(sessionKey) ? prev.filter(s => s !== sessionKey) : [...prev, sessionKey]
                         );
                       }}
-                      className={`py-2 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 select-none ${
+                      className={`py-1.5 rounded-lg border flex flex-col items-center justify-center transition-all duration-150 select-none ${
                         isSelected
-                        ? 'bg-teal-600 border-teal-500 shadow-[0_0_15px_rgba(20,185,129,0.35)] scale-[1.03]'
-                        : 'bg-[#020617] border-slate-800 hover:border-slate-700'
+                        ? 'bg-teal-600 border-teal-500 shadow scale-[1.02]'
+                        : 'bg-[#020617] border-slate-800/80 hover:border-slate-700'
                       }`}
                     >
-                      <span className={`text-[11px] font-black ${
+                      <span className={`text-[10px] font-black ${
                         sessionKey === 'RK1' 
                           ? (isSelected ? 'text-yellow-350' : 'text-amber-500/70 hover:text-amber-400')
                           : (isSelected ? 'text-cyan-200' : 'text-cyan-500/70 hover:text-cyan-400')
                       }`}>{sessionKey}</span>
-                      <span className={`text-[8px] font-medium opacity-70 tracking-wider ${
+                      <span className={`text-[7px] font-bold opacity-70 tracking-wider ${
                         sessionKey === 'RK1' 
                           ? (isSelected ? 'text-yellow-400/90' : 'text-amber-600/70')
                           : (isSelected ? 'text-cyan-300/90' : 'text-cyan-600/70')
@@ -241,69 +294,22 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
             </div>
           </div>
 
-          <div className="lg:col-span-12 space-y-2">
-            <label className="text-sm font-bold text-slate-400">備註 (選填)</label>
+          <div className="lg:col-span-12 space-y-1">
+            <label className="text-xs font-bold text-slate-400">備註 (選填)</label>
             <input
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={isRestricted}
-              className={`w-full p-2.5 bg-[#020617] text-slate-100 font-bold rounded-lg border border-slate-700 outline-none focus:ring-4 focus:ring-blue-500/20 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full p-2 bg-[#020617] text-slate-100 text-xs font-bold rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
-          </div>
-
-          <div className="lg:col-span-12 space-y-2">
-            <label className="text-sm font-bold text-slate-400">通訊與狀態設定</label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#020617] p-4 rounded-xl border border-slate-800">
-              <label className="flex items-center gap-3 p-3 bg-[#0f172a] hover:bg-slate-800/30 rounded-xl cursor-pointer transition-all border border-slate-800">
-                <input
-                  type="checkbox"
-                  checked={noSelf}
-                  onChange={(e) => setNoSelf(e.target.checked)}
-                  disabled={isRestricted}
-                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                />
-                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5 selection:bg-transparent">
-                  <i className="fa-solid fa-trophy text-yellow-500 text-sm"></i>
-                  是否無我 (勾選為無我)
-                </span>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 bg-[#0f172a] hover:bg-slate-800/30 rounded-xl cursor-pointer transition-all border border-slate-800">
-                <input
-                  type="checkbox"
-                  checked={hasDc}
-                  onChange={(e) => setHasDc(e.target.checked)}
-                  disabled={isRestricted}
-                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                />
-                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5 selection:bg-transparent">
-                  <i className="fa-brands fa-discord text-indigo-400 text-sm"></i>
-                  是否有 Discord (DC)
-                </span>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 bg-[#0f172a] hover:bg-slate-800/30 rounded-xl cursor-pointer transition-all border border-slate-800">
-                <input
-                  type="checkbox"
-                  checked={canMic}
-                  onChange={(e) => setCanMic(e.target.checked)}
-                  disabled={isRestricted}
-                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 bg-[#020617] border-slate-700 rounded cursor-pointer"
-                />
-                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5 selection:bg-transparent">
-                  <i className="fa-solid fa-microphone text-green-400 text-sm"></i>
-                  是否可開麥克風 (開Mic)
-                </span>
-              </label>
-            </div>
           </div>
 
           <div className="lg:col-span-12 flex justify-end">
             <button
               type="submit"
               disabled={isRestricted}
-              className={`w-full md:w-48 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl transition-all shadow-xl shadow-blue-600/20 active:scale-95 flex items-center justify-center gap-2 ${isRestricted ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+              className={`w-full md:w-40 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-lg transition-all shadow-lg shadow-blue-600/10 active:scale-95 flex items-center justify-center gap-1.5 ${isRestricted ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
             >
               <i className="fa-solid fa-paper-plane"></i>
               {isRestricted ? '報名功能已鎖定' : '報名'}

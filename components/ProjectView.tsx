@@ -343,35 +343,35 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
 
   // Navigation Tabs
   return (
-    <div className="min-h-screen pb-12 flex flex-col bg-[#020617] text-slate-100">
+    <div className="min-h-screen pb-6 flex flex-col bg-[#020617] text-slate-100">
       {/* Expiration Banner if needed */}
       {isExpired && (
-        <div className="bg-red-600 text-white text-[10px] font-black uppercase py-1 text-center tracking-[0.3em] animate-pulse">
+        <div className="bg-red-600 text-white text-[10px] font-black uppercase py-0.5 text-center tracking-[0.3em] animate-pulse">
           此專案已逾期，請聯繫管理員展延
         </div>
       )}
       {/* Header */}
-      <header className="bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 py-6 shadow-2xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <button onClick={() => navigate('/')} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors">
-                <i className="fa-solid fa-chevron-left"></i>
+      <header className="bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 py-3 shadow-2xl sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => navigate('/')} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors">
+                <i className="fa-solid fa-chevron-left text-xs"></i>
               </button>
             </div>
             
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/20">
-                <i className="fa-solid fa-shield-halved text-2xl"></i>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/20">
+                <i className="fa-solid fa-shield-halved text-xl"></i>
               </div>
               <div>
-                <h1 className="text-xl font-black tracking-wider text-slate-100 uppercase">{project?.name || '報名系統'}</h1>
-                <div className="flex gap-2 items-center">
-                  <span className="text-[9px] font-mono font-bold bg-slate-900 border border-slate-700 text-slate-400 px-2 py-0.5 rounded uppercase tracking-wider">
+                <h1 className="text-base font-black tracking-wider text-slate-100 uppercase leading-tight">{project?.name || '報名系統'}</h1>
+                <div className="flex gap-1.5 items-center mt-0.5">
+                  <span className="text-[8px] font-mono font-bold bg-slate-900 border border-slate-700 text-slate-400 px-1 py-0.2 rounded uppercase tracking-wider">
                     ID: {projectId}
                   </span>
                   {project?.expirationDate && (
-                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${daysLeft < 7 ? 'border-red-500 text-red-500 animate-pulse' : 'border-slate-700 text-slate-500'}`}>
+                    <span className={`text-[8px] font-bold px-1 py-0.2 rounded border ${daysLeft < 7 ? 'border-red-500 text-red-500 animate-pulse' : 'border-slate-700 text-slate-500'}`}>
                       {daysLeft} 天後到期
                     </span>
                   )}
@@ -380,11 +380,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
             </div>
           </div>
           
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-2.5 items-center">
              {/* Mode Indicator */}
-             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg">
-                <div className={`w-1.5 h-1.5 rounded-full ${user ? 'bg-green-500 animate-pulse' : 'bg-blue-500'}`}></div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+             <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-slate-900 border border-slate-800 rounded-lg">
+                <div className={`w-1 h-1 rounded-full ${user ? 'bg-green-500 animate-pulse' : 'bg-blue-500'}`}></div>
+                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
                    {user ? '成員模式' : '訪客模式'}
                 </span>
              </div>
@@ -397,15 +397,15 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
                    navigator.clipboard.writeText(shareUrl);
                    showToast('報名連結已複製', 'success');
                 }}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-slate-700 text-slate-100"
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border border-slate-700 text-slate-100"
              >
-                <i className="fa-solid fa-share-nodes mr-2"></i> 複製連結
+                <i className="fa-solid fa-share-nodes mr-1"></i> 複製連結
              </button>
              {user ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button 
                     onClick={logout} 
-                    className="px-3 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl text-[10px] uppercase font-black transition-all border border-red-500/20"
+                    className="px-2.5 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg text-[9px] uppercase font-black transition-all border border-red-500/20"
                   >
                     登出
                   </button>
@@ -413,7 +413,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
              ) : (
                 <button 
                   onClick={login} 
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] uppercase font-black transition-all shadow-lg shadow-blue-500/20"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[9px] uppercase font-black transition-all shadow-lg shadow-blue-500/20"
                 >
                   登入管理
                 </button>
@@ -423,7 +423,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
       </header>
 
       {/* Navigation Tabs */}
-      <nav className="bg-[#0f172a] border-b border-slate-800 sticky top-[84px] z-40 overflow-hidden">
+      <nav className="bg-[#0f172a] border-b border-slate-800 sticky top-[60px] z-40 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 flex flex-nowrap overflow-x-auto no-scrollbar scroll-smooth">
           <TabButton active={activeTab === 0} onClick={() => setActiveTab(0)} icon="fa-solid fa-file-signature" label="報名登記" />
           <TabButton active={activeTab === 1} onClick={() => setActiveTab(1)} icon="fa-solid fa-users" label="報名名單" />
@@ -436,7 +436,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
       </nav>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
+      <main className="flex-1 max-w-7xl mx-auto px-4 py-4 w-full">
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
           {activeTab === 0 && (
             <RegistrationSheet 

@@ -56,7 +56,7 @@ const PlayerRow = memo(({
         isFiltered ? 'bg-emerald-500/5' : ''
       } ${isRestricted ? 'opacity-70 grayscale-[0.3] cursor-not-allowed' : 'cursor-pointer'}`}
     >
-      <td className="p-4 w-12 shrink-0" onClick={(e) => e.stopPropagation()}>
+      <td className="p-3 w-12 shrink-0" onClick={(e) => e.stopPropagation()}>
         <div 
           onClick={() => !isRestricted && !isEditing && onToggleSelect(player.id)}
           className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
@@ -68,7 +68,7 @@ const PlayerRow = memo(({
           <i className="fa-solid fa-check text-[10px]"></i>
         </div>
       </td>
-      <td className="p-4">
+      <td className="p-3">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             {isEditing ? (
@@ -124,7 +124,7 @@ const PlayerRow = memo(({
           </div>
         </div>
       </td>
-      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+      <td className="p-3" onClick={(e) => e.stopPropagation()}>
         {isEditing ? (
           <input
             className="bg-[#1e293b] border border-blue-500/50 rounded px-2 py-1 text-sm font-black text-white w-20 text-center outline-none mx-auto block"
@@ -136,7 +136,7 @@ const PlayerRow = memo(({
           <span className="text-sm font-bold text-slate-350 flex justify-center">{player.power || '-'}</span>
         )}
       </td>
-      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+      <td className="p-3" onClick={(e) => e.stopPropagation()}>
         {isEditing ? (
           <div className="flex items-center justify-center gap-1.5">
             <button
@@ -188,7 +188,7 @@ const PlayerRow = memo(({
           </div>
         )}
       </td>
-      <td className="p-4 hidden md:table-cell">
+      <td className="p-3 hidden md:table-cell">
         <div className="flex flex-wrap gap-1">
           {player.martialArts.map(ma => {
             const maObj = martialArts.find(m => m.name === ma);
@@ -231,7 +231,7 @@ const PlayerRow = memo(({
           )}
         </div>
       </td>
-      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+      <td className="p-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-col gap-2 justify-center items-start">
           {/* Saturday Sessions Wrap */}
           {(() => {
@@ -398,7 +398,7 @@ const PlayerRow = memo(({
           })()}
         </div>
       </td>
-      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+      <td className="p-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-wrap items-center gap-1.5 min-h-[36px]">
           {/* Assigned Sessions */}
           {(player.assignedSessions || []).map(as => {
@@ -536,7 +536,7 @@ const PlayerRow = memo(({
           )}
         </div>
       </td>
-      <td className="p-4 text-[10px] text-slate-500 font-bold hidden lg:table-cell italic">
+      <td className="p-3 text-[10px] text-slate-500 font-bold hidden lg:table-cell italic">
         {isEditing ? (
           <input
             className="bg-[#1e293b] border border-blue-500/50 rounded px-2 py-1 text-[10px] font-bold text-slate-300 w-full outline-none"
@@ -549,7 +549,7 @@ const PlayerRow = memo(({
           player.notes || '-'
         )}
       </td>
-      <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-center gap-2">
           {!isRestricted && !isEditing && (
             <>
@@ -614,6 +614,7 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
   projectName
 }) => {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
+  const [activeMas, setActiveMas] = useState<string[]>(["無名劍法", "嗟夫刀法", "青山執筆", "明川藥典"]);
   const [targetTeam, setTargetTeam] = useState(teams[0]);
   const [bulkSource, setBulkSource] = useState(teams[0]);
   const [bulkTarget, setBulkTarget] = useState(teams[0]);
@@ -623,6 +624,12 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
   const [filterNoSelf, setFilterNoSelf] = useState(false);
   const [filterDc, setFilterDc] = useState(false);
   const [filterMic, setFilterMic] = useState(false);
+
+  const [statusStates, setStatusStates] = useState<Record<string, 'none' | 'mark' | 'select'>>({
+    noSelf: 'none',
+    hasDc: 'none',
+    canMic: 'none'
+  });
 
   const [powerSort, setPowerSort] = useState<'none' | 'desc' | 'asc'>('none');
 
@@ -813,6 +820,10 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
     }
   };
 
+  const getMaCount = useCallback((maName: string) => {
+    return players.filter(p => p.martialArts.includes(maName)).length;
+  }, [players]);
+
   const handleFilterToggle = useCallback((maName: string) => {
     const currentState = maStates[maName] || 'none';
 
@@ -838,8 +849,68 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
     }
   }, [maFilter, maStates, toggleFilter, setMaStates, getMatchingPlayerIds, selectedPlayerIds, getDeselectPlayerIds]);
 
+  const handleMaBlockClick = useCallback((maName: string) => {
+    handleFilterToggle(maName);
+  }, [handleFilterToggle]);
+
+  const handleStatusToggle = useCallback((statusKey: 'noSelf' | 'hasDc' | 'canMic') => {
+    const currentState = statusStates[statusKey] || 'none';
+    const newStates = { ...statusStates };
+
+    if (currentState === 'none') {
+      // 1st click: Mark as filter
+      newStates[statusKey] = 'mark';
+      setStatusStates(newStates);
+      if (statusKey === 'noSelf') setFilterNoSelf(true);
+      if (statusKey === 'hasDc') setFilterDc(true);
+      if (statusKey === 'canMic') setFilterMic(true);
+    } else if (currentState === 'mark') {
+      // 2nd click: Select matching players
+      newStates[statusKey] = 'select';
+      setStatusStates(newStates);
+      
+      const matchingIds = players
+        .filter(p => {
+          if (statusKey === 'noSelf') return p.noSelf === true;
+          if (statusKey === 'hasDc') return p.hasDc === true;
+          if (statusKey === 'canMic') return p.canMic === true;
+          return false;
+        })
+        .map(p => p.id);
+        
+      const newSelected = new Set(selectedPlayerIds);
+      matchingIds.forEach(id => newSelected.add(id));
+      setSelectedPlayerIds(newSelected);
+    } else {
+      // 3rd click: Clear both mark and select
+      newStates[statusKey] = 'none';
+      setStatusStates(newStates);
+      
+      if (statusKey === 'noSelf') setFilterNoSelf(false);
+      if (statusKey === 'hasDc') setFilterDc(false);
+      if (statusKey === 'canMic') setFilterMic(false);
+      
+      const matchingIds = players
+        .filter(p => {
+          if (statusKey === 'noSelf') return p.noSelf === true;
+          if (statusKey === 'hasDc') return p.hasDc === true;
+          if (statusKey === 'canMic') return p.canMic === true;
+          return false;
+        })
+        .map(p => p.id);
+        
+      const newSelected = new Set(selectedPlayerIds);
+      matchingIds.forEach(id => newSelected.delete(id));
+      setSelectedPlayerIds(newSelected);
+    }
+  }, [statusStates, players, selectedPlayerIds]);
+
   const handleClearFilter = useCallback(() => {
     clearFilter();
+    setFilterNoSelf(false);
+    setFilterDc(false);
+    setFilterMic(false);
+    setStatusStates({ noSelf: 'none', hasDc: 'none', canMic: 'none' });
     setSelectedPlayerIds(new Set());
   }, [clearFilter]);
 
@@ -901,84 +972,119 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Stats Summary Panel */}
-      <section className="bg-[#0f172a] rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
-        <div className="p-4 md:p-6 grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <div className="p-4 bg-[#020617] rounded-2xl border border-slate-800/50 space-y-1">
+      <section className="bg-[#0f172a] rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+        <div className="p-3 md:p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="p-3 bg-[#020617] rounded-xl border border-slate-800/40 space-y-0.5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">目前報名</p>
-            <p className="text-2xl font-black text-blue-500">{stats.total} <span className="text-[10px] text-slate-600">人</span></p>
+            <p className="text-xl font-black text-blue-500">{stats.total} <span className="text-[10px] text-slate-600">人</span></p>
           </div>
-          <div className="p-4 bg-[#020617] rounded-2xl border border-slate-800/50 space-y-1">
+          <div className="p-3 bg-[#020617] rounded-xl border border-slate-800/40 space-y-0.5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">週六出席</p>
-            <p className="text-2xl font-black text-emerald-500">{stats.satCount} <span className="text-[10px] text-slate-600">人</span></p>
+            <p className="text-xl font-black text-emerald-500">{stats.satCount} <span className="text-[10px] text-slate-600">人</span></p>
           </div>
-          <div className="p-4 bg-[#020617] rounded-2xl border border-slate-800/50 space-y-1">
+          <div className="p-3 bg-[#020617] rounded-xl border border-slate-800/40 space-y-0.5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">週日出席</p>
-            <p className="text-2xl font-black text-emerald-500">{stats.sunCount} <span className="text-[10px] text-slate-600">人</span></p>
+            <p className="text-xl font-black text-emerald-500">{stats.sunCount} <span className="text-[10px] text-slate-600">人</span></p>
           </div>
-          <div className="p-4 bg-[#020617] rounded-2xl border border-slate-800/50 space-y-1">
+          <div className="p-3 bg-[#020617] rounded-xl border border-slate-800/40 space-y-0.5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">待分配</p>
-            <p className="text-2xl font-black text-amber-500">{stats.unassignedCount} <span className="text-[10px] text-slate-600">人</span></p>
+            <p className="text-xl font-black text-amber-500">{stats.unassignedCount} <span className="text-[10px] text-slate-600">人</span></p>
           </div>
         </div>
       </section>
           
       {/* Management Toolbar */}
-      <section className="bg-[#0f172a] p-4 md:p-6 rounded-3xl border border-slate-800 space-y-6">
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
-          <div className="space-y-4 flex-1 w-full">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                  <i className="fa-solid fa-filter text-blue-500"></i>
-                  武學篩選標記
-                </h3>
-                {maFilter.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <button 
-                      ref={filterBtnRef}
-                      onClick={toggleSummary}
-                      className="text-[9px] font-black text-blue-400 hover:text-white flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20 transition-all"
-                    >
-                      <i className="fa-solid fa-list-check"></i>
-                      人員清單 ({filteredPlayers.length})
-                    </button>
-                    <button 
-                      onClick={handleClearFilter}
-                      className="text-[9px] font-black text-red-500 hover:text-white flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 transition-all"
-                    >
-                      <i className="fa-solid fa-trash-can"></i>
-                      清除篩選
-                    </button>
-                  </div>
+      <section className="bg-[#0f172a] p-3 rounded-2xl border border-slate-800">
+        <div className="flex flex-col gap-3">
+          
+          {/* Martial Arts Filter Section */}
+          <div className="flex flex-col gap-2 w-full">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+                    <i className="fa-solid fa-filter text-blue-500"></i>
+                    武學人數與標記
+                  </h3>
+                  {(maFilter.length > 0 || statusStates.noSelf !== 'none' || statusStates.hasDc !== 'none' || statusStates.canMic !== 'none') && (
+                    <div className="flex items-center gap-1.5">
+                      <button 
+                        onClick={handleClearFilter}
+                        className="text-[9px] font-bold text-red-500 hover:text-white flex items-center gap-1.5 bg-red-500/10 px-2 py-1 rounded-md border border-red-500/20 transition-all cursor-pointer"
+                      >
+                        <i className="fa-solid fa-trash-can"></i>
+                        清除標記 ({maFilter.length + (statusStates.noSelf !== 'none' ? 1 : 0) + (statusStates.hasDc !== 'none' ? 1 : 0) + (statusStates.canMic !== 'none' ? 1 : 0)})
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dropdown to add more displayed martial arts */}
+                {martialArts.some(ma => !activeMas.includes(ma.name)) && (
+                  <select
+                    className="bg-[#020617] border border-slate-800 text-[9px] rounded-md px-2 py-1 outline-none text-slate-355 font-bold hover:border-slate-700 transition-all cursor-pointer text-slate-300"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val && !activeMas.includes(val)) {
+                        setActiveMas(prev => [...prev, val]);
+                      }
+                      e.target.value = '';
+                    }}
+                  >
+                    <option value="">+ 新增顯示武學</option>
+                    {martialArts.filter(ma => !activeMas.includes(ma.name)).map(ma => (
+                      <option key={ma.name} value={ma.name}>{ma.name}</option>
+                    ))}
+                  </select>
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {martialArts.map(ma => {
-                const state = maStates[ma.name] || 'none';
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+              {activeMas.map(maName => {
+                const ma = martialArts.find(m => m.name === maName);
+                if (!ma) return null;
+                const isSelected = maFilter.includes(maName);
+                const state = maStates[maName] || 'none';
                 return (
-                  <div key={ma.name} className="relative group">
-                    <button
-                      onClick={() => handleFilterToggle(ma.name)}
-                      className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all flex items-center gap-2 ${
-                        state === 'select'
-                        ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'
-                        : state === 'mark'
-                        ? 'bg-blue-500/20 border-blue-500/40 text-blue-400 shadow-lg shadow-blue-500/5'
-                        : 'bg-[#020617] border-slate-800 text-slate-500 hover:border-slate-600'
-                      }`}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ma.color }}></span>
-                      {ma.name}
-                      {state === 'mark' && <i className="fa-solid fa-eye text-[8px] opacity-70"></i>}
-                      {state === 'select' && <i className="fa-solid fa-check-double text-[8px]"></i>}
-                    </button>
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg text-[10px] font-bold text-slate-300 w-max invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-2xl">
-                      武學篩選標記: 點選1次<span className="text-amber-400 mx-1">[標記]</span>,點選2次<span className="text-blue-400 mx-1">[選取]</span>
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0f172a]"></div>
+                  <div
+                    key={maName}
+                    onClick={() => handleMaBlockClick(maName)}
+                    className={`cursor-pointer flex items-center justify-between gap-1.5 p-2 rounded-lg border transition-all active:scale-95 ${
+                      isSelected
+                        ? 'bg-blue-600/15 border-blue-500 text-white shadow shadow-blue-500/10'
+                        : 'bg-[#020617] border-slate-800/80 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: ma.color }}></span>
+                      <span className="text-[11px] font-bold truncate">
+                        {ma.name}
+                        {state === 'mark' && <span className="ml-1 text-[8px] text-amber-500 font-bold">(標)</span>}
+                        {state === 'select' && <span className="ml-1 text-[8px] text-blue-400 font-bold">(選)</span>}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${
+                        isSelected ? 'bg-blue-500 text-white' : 'bg-[#0f172a] text-slate-400'
+                      }`}>
+                        {getMaCount(maName)}人
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMas(prev => prev.filter(name => name !== maName));
+                          if (maFilter.includes(maName)) {
+                            setMaFilter(p => p.filter(n => n !== maName));
+                          }
+                        }}
+                        className="text-slate-500 hover:text-red-400 p-0.5 text-xs transition-colors cursor-pointer"
+                        title="隱藏此武學"
+                      >
+                        <i className="fa-solid fa-xmark text-[10px]"></i>
+                      </button>
                     </div>
                   </div>
                 );
@@ -986,29 +1092,82 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 w-full xl:w-auto">
-            {/* Smart Allocation Trigger */}
-            <div className="flex flex-col sm:flex-row items-end gap-4 bg-[#020617] p-4 rounded-2xl border border-slate-800">
-              <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                <span className="text-[10px] font-black text-purple-400 uppercase tracking-tighter leading-none">配置與匯出</span>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowSmartAssign(!showSmartAssign)}
-                    className={`px-4 h-9 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+          {/* Status Filter Section */}
+          <div className="flex flex-col gap-2 w-full border-t border-slate-800/60 pt-3">
+            <div className="flex items-center gap-4">
+              <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                <i className="fa-solid fa-user-gear text-blue-500"></i>
+                狀態人數與標記
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+              {[
+                { key: 'noSelf', label: '無我', iconClass: 'fa-solid fa-trophy text-yellow-500' },
+                { key: 'hasDc', label: '有 DC', iconClass: 'fa-brands fa-discord text-indigo-400' },
+                { key: 'canMic', label: '可開 Mic', iconClass: 'fa-solid fa-microphone text-green-400' }
+              ].map(statusItem => {
+                const statusKey = statusItem.key as 'noSelf' | 'hasDc' | 'canMic';
+                const count = players.filter(p => {
+                  if (statusKey === 'noSelf') return p.noSelf === true;
+                  if (statusKey === 'hasDc') return p.hasDc === true;
+                  if (statusKey === 'canMic') return p.canMic === true;
+                  return false;
+                }).length;
+                const state = statusStates[statusKey] || 'none';
+                const isSelected = state !== 'none';
+                return (
+                  <div
+                    key={statusKey}
+                    onClick={() => handleStatusToggle(statusKey)}
+                    className={`cursor-pointer flex items-center justify-between gap-1.5 p-2 rounded-lg border transition-all active:scale-95 ${
+                      isSelected
+                        ? 'bg-blue-600/15 border-blue-500 text-white shadow shadow-blue-500/10'
+                        : 'bg-[#020617] border-slate-800/80 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
                   >
-                    <i className="fa-solid fa-brain"></i>
-                    智能選隊
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleExportExcel}
-                    className="px-4 h-9 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black rounded-lg transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <i className="fa-solid fa-file-excel"></i>
-                    輸出EXCEL(XLSX)
-                  </button>
-                </div>
+                    <div className="flex items-center gap-1.5 truncate">
+                      <i className={`text-[10px] shrink-0 ${statusItem.iconClass}`}></i>
+                      <span className="text-[11px] font-bold truncate">
+                        {statusItem.label}
+                        {state === 'mark' && <span className="ml-1 text-[8px] text-amber-500 font-bold">(標)</span>}
+                        {state === 'select' && <span className="ml-1 text-[8px] text-blue-400 font-bold">(選)</span>}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${
+                        isSelected ? 'bg-blue-500 text-white' : 'bg-[#0f172a] text-slate-400'
+                      }`}>
+                        {count}人
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Configuration Action Buttons Section */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#020617] p-2.5 px-3.5 rounded-xl border border-slate-800/80 mt-1 w-full">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <span className="text-[9px] font-black text-purple-400 uppercase tracking-tighter shrink-0 animate-pulse">配置功能</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSmartAssign(!showSmartAssign)}
+                  className={`px-3 h-8 bg-purple-600 hover:bg-purple-500 text-white text-[9px] font-bold rounded-lg transition-all shadow flex items-center justify-center gap-1 cursor-pointer ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <i className="fa-solid fa-brain"></i>
+                  輔助選隊
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  className="px-3 h-8 bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-bold rounded-lg transition-all shadow flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <i className="fa-solid fa-file-excel"></i>
+                  輸出EXCEL (XLSX)
+                </button>
               </div>
             </div>
           </div>
@@ -1099,12 +1258,12 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
         )}
       </section>
 
-      <section className="bg-[#0f172a] rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
+      <section className="bg-[#0f172a] rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#020617] border-b border-slate-800">
               <tr>
-                <th className="p-4 w-12 text-center">
+                <th className="p-3 w-12 text-center">
                   <input
                     type="checkbox"
                     checked={players.length > 0 && selectedPlayerIds.size === players.length}
@@ -1115,12 +1274,12 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
                     className="rounded border-slate-700 bg-slate-900"
                   />
                 </th>
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">遊戲名稱</th>
+                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">遊戲名稱</th>
                 <th 
                   onClick={() => {
                     setPowerSort(prev => prev === 'none' ? 'desc' : prev === 'desc' ? 'asc' : 'none');
                   }}
-                  className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center cursor-pointer hover:text-blue-400 transition-colors selection:bg-transparent"
+                  className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center cursor-pointer hover:text-blue-400 transition-colors selection:bg-transparent"
                 >
                   <span className="flex items-center justify-center gap-1.5 mx-auto w-max">
                     戰力指數
@@ -1129,12 +1288,12 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
                     {powerSort === 'asc' && <i className="fa-solid fa-sort-up text-blue-500 text-[10px]"></i>}
                   </span>
                 </th>
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">狀態限制</th>
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left hidden md:table-cell">武學</th>
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">報名場次</th>
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">分配參加場次</th>
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left hidden lg:table-cell">備註</th>
-                <th className="p-4 text-center"></th>
+                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">狀態限制</th>
+                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left hidden md:table-cell">武學</th>
+                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">報名場次</th>
+                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">分配參加場次</th>
+                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left hidden lg:table-cell">備註</th>
+                <th className="p-3 text-center"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">

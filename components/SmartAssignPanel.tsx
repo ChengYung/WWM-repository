@@ -229,7 +229,7 @@ export const SmartAssignPanel: React.FC<SmartAssignPanelProps> = ({
 
     setConfirmConfig({
       isOpen: true,
-      title: '確認執行智能選隊',
+      title: '確認執行輔助選隊',
       message: '執行此操作後，將會根據篩選條件與各武學配置人數，直接修改並覆蓋當前選定場次的各玩家分配隊伍。確定要執行嗎？',
       onConfirm: () => {
         handleExecuteSmartAssign();
@@ -249,7 +249,7 @@ export const SmartAssignPanel: React.FC<SmartAssignPanelProps> = ({
   return (
     <div className="mt-4 p-5 bg-[#020617] rounded-3xl border border-slate-800 space-y-4 animate-in slide-in-from-top-4 duration-300">
       <h4 className="text-xs font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
-        <i className="fa-solid fa-gears text-purple-500"></i> 智能選隊配置
+        <i className="fa-solid fa-gears text-purple-500"></i> 輔助選隊配置
       </h4>
 
       {/* Target Session Selector dropdown */}
@@ -279,7 +279,7 @@ export const SmartAssignPanel: React.FC<SmartAssignPanelProps> = ({
         </div>
         <div className="flex flex-col justify-end">
           <span className="text-[10px] text-slate-500">
-            選擇特定目標場次執行「智能選隊」將會篩選該場次有報名的玩家，並在篩選完成後直接將入選玩家指派出賽該場次。
+            選擇特定目標場次執行「輔助選隊」將會篩選該場次有報名的玩家，並在篩選完成後直接將入選玩家指派出賽該場次。
           </span>
         </div>
       </div>
