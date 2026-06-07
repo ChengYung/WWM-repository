@@ -189,7 +189,7 @@ const PlayerRow = memo(({
         )}
       </td>
       <td className="p-3 hidden md:table-cell">
-        <div className="flex flex-wrap gap-1">
+        <div className="grid grid-cols-2 gap-1 w-max max-w-[130px]">
           {player.martialArts.map(ma => {
             const maObj = martialArts.find(m => m.name === ma);
             return (
@@ -201,21 +201,22 @@ const PlayerRow = memo(({
                     onEdit({ ...player, martialArts: player.martialArts.filter(m => m !== ma) });
                   }
                 }}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[9px] font-bold transition-all justify-start truncate ${
                   isEditing 
                   ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white cursor-pointer' 
                   : 'bg-[#020617] border-slate-800 text-slate-400'
                 }`}
+                title={ma}
               >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: maObj?.color }}></span>
-                {ma}
-                {isEditing && <i className="fa-solid fa-circle-xmark ml-1 opacity-50"></i>}
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: maObj?.color }}></span>
+                <span className="truncate">{ma}</span>
+                {isEditing && <i className="fa-solid fa-circle-xmark ml-auto opacity-50 text-[8px]"></i>}
               </span>
             );
           })}
           {isEditing && (
             <select 
-              className="bg-slate-800 text-[10px] border border-blue-500/30 rounded-full px-3 py-1 outline-none text-blue-400 font-bold"
+              className="col-span-2 bg-slate-800 text-[9px] border border-blue-500/30 rounded px-1.5 py-0.5 outline-none text-blue-400 font-bold w-full"
               onChange={(e) => {
                 if (e.target.value && !player.martialArts.includes(e.target.value)) {
                   onEdit({ ...player, martialArts: [...player.martialArts, e.target.value] });
@@ -223,7 +224,7 @@ const PlayerRow = memo(({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <option value="">+ 新增武學</option>
+              <option value="">+ 新增</option>
               {martialArts.filter(m => !player.martialArts.includes(m.name)).map(m => (
                 <option key={m.name} value={m.name}>{m.name}</option>
               ))}
@@ -232,12 +233,12 @@ const PlayerRow = memo(({
         </div>
       </td>
       <td className="p-3" onClick={(e) => e.stopPropagation()}>
-        <div className="flex flex-col gap-2 justify-center items-start">
+        <div className="flex flex-col gap-1.5 justify-center items-start">
           {/* Saturday Sessions Wrap */}
           {(() => {
             const activeSatS = player.satSessions || (player.satAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []);
             return (
-              <div className="flex items-center gap-1.5 bg-indigo-950/15 border border-indigo-500/10 p-1 rounded-lg w-full">
+              <div className="flex items-center gap-1 bg-indigo-950/15 border border-indigo-500/10 p-0.5 px-1 rounded-lg w-full">
                 <button
                   type="button"
                   disabled={isRestricted}
@@ -262,11 +263,11 @@ const PlayerRow = memo(({
                     });
                   }}
                   title="點選勾選/取消全部週六場次"
-                  className="text-[9px] font-black text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500 hover:text-white px-1.5 py-0.5 rounded leading-none shrink-0 border border-indigo-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-[8px] font-black text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500 hover:text-white px-1 py-0.5 rounded leading-none shrink-0 border border-indigo-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   六
                 </button>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-nowrap gap-0.5">
                   {['RK1', 'NG1', 'NG2', 'NG3', 'NG4'].map(s => {
                     const isSelected = activeSatS.includes(s);
                     return (
@@ -296,7 +297,7 @@ const PlayerRow = memo(({
                           });
                         }}
                         title={SESSION_LABELS[s]}
-                        className={`text-[8px] font-black px-1.5 py-0.5 rounded transition-all select-none border ${
+                        className={`text-[8px] font-black px-1 py-0.5 rounded transition-all select-none border ${
                           isSelected
                             ? 'bg-indigo-600 border-indigo-500 shadow-sm shadow-indigo-500/20 scale-105 hover:bg-indigo-500'
                             : 'bg-[#020617] border-slate-800 hover:border-slate-700'
@@ -319,7 +320,7 @@ const PlayerRow = memo(({
           {(() => {
             const activeSunS = player.sunSessions || (player.sunAvailability === 'YES' ? ['RK1', 'NG1', 'NG2', 'NG3', 'NG4'] : []);
             return (
-              <div className="flex items-center gap-1.5 bg-teal-950/15 border border-teal-500/10 p-1 rounded-lg w-full">
+              <div className="flex items-center gap-1 bg-teal-950/15 border border-teal-500/10 p-0.5 px-1 rounded-lg w-full">
                 <button
                   type="button"
                   disabled={isRestricted}
@@ -344,11 +345,11 @@ const PlayerRow = memo(({
                     });
                   }}
                   title="點選勾選/取消全部週日場次"
-                  className="text-[9px] font-black text-teal-400 bg-teal-500/10 hover:bg-teal-500 hover:text-white px-1.5 py-0.5 rounded leading-none shrink-0 border border-teal-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-[8px] font-black text-teal-400 bg-teal-500/10 hover:bg-teal-500 hover:text-white px-1 py-0.5 rounded leading-none shrink-0 border border-teal-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   日
                 </button>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-nowrap gap-0.5">
                   {['RK1', 'NG1', 'NG2', 'NG3', 'NG4'].map(s => {
                     const isSelected = activeSunS.includes(s);
                     return (
@@ -378,13 +379,13 @@ const PlayerRow = memo(({
                           });
                         }}
                         title={SESSION_LABELS[s]}
-                        className={`text-[8px] font-black px-1.5 py-0.5 rounded transition-all select-none border ${
+                        className={`text-[8px] font-black px-1 py-0.5 rounded transition-all select-none border ${
                           isSelected
                             ? 'bg-teal-600 border-teal-500 shadow-sm shadow-teal-500/20 scale-105 hover:bg-teal-500'
                             : 'bg-[#020617] border-slate-800 hover:border-slate-700'
                         } ${
                           s === 'RK1'
-                            ? (isSelected ? 'text-yellow-350' : 'text-amber-500/50')
+                            ? (isSelected ? 'text-yellow-355' : 'text-amber-500/50')
                             : (isSelected ? 'text-cyan-200' : 'text-cyan-600/50')
                         }`}
                       >
@@ -399,38 +400,82 @@ const PlayerRow = memo(({
         </div>
       </td>
       <td className="p-3" onClick={(e) => e.stopPropagation()}>
-        <div className="flex flex-wrap items-center gap-1.5 min-h-[36px]">
-          {/* Assigned Sessions */}
-          {(player.assignedSessions || []).map(as => {
-            const isSat = as.startsWith('SAT_');
-            const name = as.replace('SAT_', '').replace('SUN_', '');
+        <div className="flex flex-col gap-1.5 justify-center items-start min-h-[36px]">
+          {/* Saturday Assigned Row */}
+          {(() => {
+            const satAssigned = ['RK1', 'NG1', 'NG2', 'NG3', 'NG4']
+              .map(s => `SAT_${s}`)
+              .filter(as => (player.assignedSessions || []).includes(as));
+            
+            if (satAssigned.length === 0) return null;
             return (
-              <span
-                key={as}
-                onClick={() => {
-                  if (isRestricted) return;
-                  const currentAssigned = player.assignedSessions || [];
-                  const newAssigned = currentAssigned.filter(item => item !== as);
-                  const newTeamBySession = { ...player.teamBySession };
-                  delete newTeamBySession[as];
-                  onEdit({
-                    ...player,
-                    assignedSessions: newAssigned,
-                    teamBySession: newTeamBySession
-                  });
-                }}
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold transition-all ${
-                  isSat 
-                  ? 'bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 hover:bg-red-500 hover:text-white hover:border-red-500 cursor-pointer' 
-                  : 'bg-amber-500/15 border border-amber-500/35 text-amber-400 hover:bg-red-500 hover:text-white hover:border-red-500 cursor-pointer'
-                }`}
-                title="點擊可移除分配"
-              >
-                {isSat ? '六' : '日'}: <span className={name === 'RK1' ? 'text-yellow-300 font-extrabold ml-0.5' : 'text-cyan-200 font-bold ml-0.5'}>{name}</span>
-                <i className="fa-solid fa-xmark text-[8px] ml-0.5 opacity-60"></i>
-              </span>
+              <div className="flex flex-nowrap items-center gap-1">
+                {satAssigned.map(as => {
+                  const name = as.replace('SAT_', '');
+                  return (
+                    <span
+                      key={as}
+                      onClick={() => {
+                        if (isRestricted) return;
+                        const currentAssigned = player.assignedSessions || [];
+                        const newAssigned = currentAssigned.filter(item => item !== as);
+                        const newTeamBySession = { ...player.teamBySession };
+                        delete newTeamBySession[as];
+                        onEdit({
+                          ...player,
+                          assignedSessions: newAssigned,
+                          teamBySession: newTeamBySession
+                        });
+                      }}
+                      className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-black transition-all bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 hover:bg-red-500 hover:text-white hover:border-red-500 cursor-pointer"
+                      title="點擊可移除分配"
+                    >
+                      六: <span className={name === 'RK1' ? 'text-yellow-300 font-extrabold' : 'text-cyan-200 font-bold'}>{name}</span>
+                      <i className="fa-solid fa-xmark text-[7px] ml-0.5 opacity-60"></i>
+                    </span>
+                  );
+                })}
+              </div>
             );
-          })}
+          })()}
+
+          {/* Sunday Assigned Row */}
+          {(() => {
+            const sunAssigned = ['RK1', 'NG1', 'NG2', 'NG3', 'NG4']
+              .map(s => `SUN_${s}`)
+              .filter(as => (player.assignedSessions || []).includes(as));
+            
+            if (sunAssigned.length === 0) return null;
+            return (
+              <div className="flex flex-nowrap items-center gap-1">
+                {sunAssigned.map(as => {
+                  const name = as.replace('SUN_', '');
+                  return (
+                    <span
+                      key={as}
+                      onClick={() => {
+                        if (isRestricted) return;
+                        const currentAssigned = player.assignedSessions || [];
+                        const newAssigned = currentAssigned.filter(item => item !== as);
+                        const newTeamBySession = { ...player.teamBySession };
+                        delete newTeamBySession[as];
+                        onEdit({
+                          ...player,
+                          assignedSessions: newAssigned,
+                          teamBySession: newTeamBySession
+                        });
+                      }}
+                      className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-black transition-all bg-amber-500/15 border border-amber-500/35 text-amber-400 hover:bg-red-500 hover:text-white hover:border-red-500 cursor-pointer"
+                      title="點擊可移除分配"
+                    >
+                      日: <span className={name === 'RK1' ? 'text-yellow-300 font-extrabold' : 'text-cyan-200 font-bold'}>{name}</span>
+                      <i className="fa-solid fa-xmark text-[7px] ml-0.5 opacity-60"></i>
+                    </span>
+                  );
+                })}
+              </div>
+            );
+          })()}
           
           {/* Multi-select dropdown to assign sessions */}
           {(() => {
