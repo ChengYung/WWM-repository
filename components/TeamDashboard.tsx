@@ -504,19 +504,19 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   return (
     <div className="space-y-4">
       <div className="bg-[#0f172a] border border-slate-800 p-3 rounded-2xl shadow-2xl flex flex-col gap-3">
-        <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 pb-2 border-b border-slate-800/60">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-lg font-black flex items-center gap-2 text-white">
-              <i className="fa-solid fa-microchip text-blue-500"></i>
-              隊伍分配
-            </h2>
-            <div className="bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full text-blue-400 text-[9px] font-black tracking-widest uppercase">
-              TOTAL: {players.length} 人
-            </div>
+        <div className="flex flex-wrap items-center gap-3 pb-2 border-b border-slate-800/60">
+          <h2 className="text-lg font-black flex items-center gap-2 text-white">
+            <i className="fa-solid fa-microchip text-blue-500"></i>
+            隊伍分配
+          </h2>
+          <div className="bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full text-blue-400 text-[9px] font-black tracking-widest uppercase">
+            TOTAL: {players.length} 人
           </div>
+        </div>
 
-          {/* Session Filter */}
-          <div className="flex flex-nowrap items-center gap-2 bg-[#020617] p-1 px-2.5 rounded-lg border border-slate-800/80 shadow-inner w-full xl:w-auto overflow-x-auto no-scrollbar">
+        {/* Session Filter */}
+        <div className="flex justify-start">
+          <div className="flex flex-nowrap items-center gap-2 bg-[#020617] p-1 px-2.5 rounded-lg border border-slate-800/80 shadow-inner w-auto max-w-full overflow-x-auto no-scrollbar">
             <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider shrink-0">選擇場次:</span>
             <div className="flex flex-nowrap items-center gap-2">
               {/* Saturday Row Wrap */}
@@ -784,6 +784,18 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
             </div>
           </div>
         </div>
+
+        {showSmartAssign && (
+          <SmartAssignPanel 
+            players={players}
+            teams={teams}
+            martialArts={martialArts}
+            isRestricted={isRestricted}
+            onUpdatePlayers={(updates, s) => onUpdatePlayers(updates, s)}
+            currentSession={sessionFilter}
+            onSessionChange={(s) => setSessionFilter(s)}
+          />
+        )}
         </div>
 
           {/* Draggable Summary Popup */}
