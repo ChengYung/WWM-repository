@@ -16,7 +16,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { Player, Project, TeamConfig, MartialArts, Technique, UserProfile } from '../types';
+import { Player, Project, TeamConfig, MartialArts, Technique, UserProfile, Member } from '../types';
 import { 
   INITIAL_MARTIAL_ARTS, 
   TEAMS, 
@@ -215,5 +215,31 @@ export const ProjectService = {
     
     batch.update(projectRef, { playerCount: 0 });
     return batch.commit();
+  },
+
+  // Project Members Management
+  subscribeToMembers(projectId: string, callback: (members: Member[]) => void) {
+    const q = query(collection(db, 'projects', projectId, 'members'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Member)));
+    });
+  },
+
+  async addMember(projectId: string, member: Omit<Member, 'id'>) {
+    const memberRef = doc(collection(db, 'projects', projectId, 'members'));
+    const cleanedMember = this.cleanData(member);
+    await setDoc(memberRef, { ...cleanedMember, id: memberRef.id, projectId });
+    return memberRef.id;
+  },
+
+  async updateMember(projectId: string, member: Member) {
+    const ref = doc(db, 'projects', projectId, 'members', member.id);
+    const cleanedMember = this.cleanData(member);
+    return setDoc(ref, cleanedMember);
+  },
+
+  async deleteMember(projectId: string, memberId: string) {
+    const ref = doc(db, 'projects', projectId, 'members', memberId);
+    return deleteDoc(ref);
   }
 };

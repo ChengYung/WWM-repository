@@ -2,13 +2,16 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User } from 'firebase/auth';
 import { ProjectService } from '../services/ProjectService';
-import { Player, Project, TeamConfig, MartialArts, Technique, Availability } from '../types';
+import { Player, Project, TeamConfig, MartialArts, Availability, Member, HeartMethod } from '../types';
 import { 
   AVAILABILITY_OPTIONS, 
   INITIAL_MARTIAL_ARTS, 
   TEAMS, 
-  INITIAL_TEAM_DESCRIPTIONS, 
-  INITIAL_TECHNIQUES 
+  INITIAL_TEAM_DESCRIPTIONS,
+  INITIAL_TECHNIQUES,
+  INITIAL_HEART_METHODS,
+  INITIAL_WEAPON_SETS,
+  INITIAL_ARMOR_SETS
 } from '../constants';
 
 // Components
@@ -16,7 +19,7 @@ import { TabButton } from './TabButton';
 import { RegistrationSheet } from './RegistrationSheet';
 import { RegistrationList } from './RegistrationList';
 import { TeamDashboard } from './TeamDashboard';
-import { TechniqueSheet } from './TechniqueSheet';
+import { MemberSheet } from './MemberSheet';
 import { ConfigSheet } from './ConfigSheet';
 import { ConfirmModal } from './ConfirmModal';
 import { useToast } from './Toast';
@@ -37,6 +40,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
   // Project State
   const [project, setProject] = useState<Project | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastAddedPlayerId, setLastAddedPlayerId] = useState<string | null>(null);
 
@@ -44,7 +48,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
   const martialArts = project?.martialArts || INITIAL_MARTIAL_ARTS;
   const teams = project?.teams || TEAMS;
   const teamDescriptions = project?.teamDescriptions || INITIAL_TEAM_DESCRIPTIONS;
-  const techniques = project?.techniques || INITIAL_TECHNIQUES;
+  const heartMethods = project?.heartMethods || INITIAL_HEART_METHODS;
+  const weaponSets = project?.weaponSets || INITIAL_WEAPON_SETS;
+  const armorSets = project?.armorSets || INITIAL_ARMOR_SETS;
 
   // Confirmation Modal
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -58,7 +64,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
     setConfirmConfig({ isOpen: true, title, message, onConfirm });
   };
 
-  // Load Project and sync Players
+  // Load Project, sync Players and sync Members
   useEffect(() => {
     if (!projectId) return;
 
@@ -78,8 +84,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
       setLoading(false);
     });
 
+    // 3. Subscribe to Members
+    const unsubscribeMembers = ProjectService.subscribeToMembers(projectId, (mList) => {
+      setMembers(mList);
+    });
+
     return () => {
       unsubscribePlayers();
+      unsubscribeMembers();
     };
   }, [projectId, navigate, user]);
 
@@ -223,6 +235,37 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
     }
   }, [projectId, isAdmin, isRestricted]);
 
+  const handleAddMember = useCallback(async (newMember: Omit<Member, 'id'>) => {
+    if (!projectId) throw new Error("No project ID");
+    if (!isAdmin && isRestricted) {
+      showToast('專案已過期或被限制，無法新增成員', 'error');
+      throw new Error("Project restricted");
+    }
+    return ProjectService.addMember(projectId, newMember);
+  }, [projectId, isAdmin, isRestricted]);
+
+  const handleUpdateMember = useCallback(async (updatedMember: Member) => {
+    if (!projectId) return;
+    if (!isAdmin && isRestricted) {
+      showToast('專案已過期或被限制，無法修改成員', 'error');
+      return;
+    }
+    try {
+      await ProjectService.updateMember(projectId, updatedMember);
+    } catch (error) {
+      console.error("Failed to update member", error);
+    }
+  }, [projectId, isAdmin, isRestricted]);
+
+  const handleDeleteMember = useCallback((memberId: string) => {
+    if (!projectId) return;
+    if (!isAdmin && isRestricted) {
+      showToast('專案已過期或被限制，無法刪除成員', 'error');
+      return;
+    }
+    ProjectService.deleteMember(projectId, memberId);
+  }, [projectId, isAdmin, isRestricted]);
+
   const handleMovePlayer = useCallback(async (playerId: string, targetTeam: string, sessionFilter?: string | null) => {
     if (!projectId) return;
     try {
@@ -278,7 +321,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
       martialArts: INITIAL_MARTIAL_ARTS,
       teams: TEAMS,
       teamDescriptions: INITIAL_TEAM_DESCRIPTIONS,
-      techniques: INITIAL_TECHNIQUES
+      techniques: INITIAL_TECHNIQUES,
+      heartMethods: INITIAL_HEART_METHODS,
+      weaponSets: INITIAL_WEAPON_SETS,
+      armorSets: INITIAL_ARMOR_SETS
     });
   }, [handleUpdateProjectConfig]);
 
@@ -428,7 +474,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
           <TabButton active={activeTab === 0} onClick={() => setActiveTab(0)} icon="fa-solid fa-file-signature" label="報名登記" />
           <TabButton active={activeTab === 1} onClick={() => setActiveTab(1)} icon="fa-solid fa-users" label="報名名單" />
           <TabButton active={activeTab === 2} onClick={() => setActiveTab(2)} icon="fa-solid fa-chart-column" label="隊伍編制" />
-          <TabButton active={activeTab === 3} onClick={() => setActiveTab(3)} icon="fa-solid fa-scroll" label="操作技巧" />
+          <TabButton active={activeTab === 3} onClick={() => setActiveTab(3)} icon="fa-solid fa-users-viewfinder" label="百業成員" />
           {(isOwner || isAdmin) && (
             <TabButton active={activeTab === 5} onClick={() => setActiveTab(5)} icon="fa-solid fa-gears" label="配置設定" />
           )}
@@ -446,6 +492,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
               players={players}
               availabilityOptions={AVAILABILITY_OPTIONS}
               isRestricted={isRestricted && !isAdmin}
+              members={members}
             />
           )}
           {activeTab === 1 && (
@@ -457,11 +504,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
               onClearPlayers={handleClearPlayers}
               onResetTeams={handleResetTeams}
               onEditPlayer={handleEditPlayer}
+              onUpdateMember={handleUpdateMember}
               martialArts={martialArts}
               teams={teams}
               availabilityOptions={AVAILABILITY_OPTIONS}
               isRestricted={isRestricted && !isAdmin}
               projectName={project?.name}
+              members={members}
+              heartMethods={heartMethods}
             />
           )}
           {activeTab === 2 && (
@@ -475,13 +525,21 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
               teamDescriptions={teamDescriptions}
               martialArts={martialArts}
               isRestricted={isRestricted && !isAdmin}
+              members={members}
             />
           )}
           {activeTab === 3 && (
-            <TechniqueSheet 
-              techniques={techniques}
-              onSave={(t) => handleUpdateProjectConfig({ techniques: t })}
-              isReadOnly={!isOwner && !isAdmin}
+            <MemberSheet 
+              projectId={projectId || ''}
+              members={members}
+              players={players}
+              martialArts={martialArts}
+              heartMethods={heartMethods}
+              weaponSets={weaponSets}
+              armorSets={armorSets}
+              onAddMember={handleAddMember}
+              onUpdateMember={handleUpdateMember}
+              onDeleteMember={handleDeleteMember}
               isRestricted={isRestricted && !isAdmin}
             />
           )}
@@ -490,8 +548,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
               martialArts={martialArts}
               teams={teams}
               players={players}
+              heartMethods={heartMethods}
+              weaponSets={weaponSets}
+              armorSets={armorSets}
               onUpdateMartialArts={(ma) => handleUpdateProjectConfig({ martialArts: ma })}
               onUpdateTeams={handleUpdateTeams}
+              onUpdateHeartMethods={(hm) => handleUpdateProjectConfig({ heartMethods: hm })}
+              onUpdateWeaponSets={(ws) => handleUpdateProjectConfig({ weaponSets: ws })}
+              onUpdateArmorSets={(as) => handleUpdateProjectConfig({ armorSets: as })}
               onBatchUpdatePlayers={handleUpdatePlayers}
               onRestoreDefaults={handleRestoreDefaults}
               showConfirm={showConfirm}

@@ -45,6 +45,18 @@
          "maxProjects": { "type": "number", "description": "Maximum projects allowed for this user." },
          "createdAt": { "type": "number" }
        }
+    },
+    "Member": {
+      "title": "Member",
+      "description": "Represents a member registered under the project.",
+      "type": "object",
+      "properties": {
+        "gameName": { "type": "string" },
+        "combos": { "type": "array", "items": { "type": "object", "description": "Combos list containing arts list and its power value." } },
+        "createdAt": { "type": "number" },
+        "projectId": { "type": "string" }
+      },
+      "required": ["gameName", "projectId", "createdAt"]
     }
   },
   "firestore": {
@@ -55,6 +67,10 @@
     "/projects/{projectId}/players/{playerId}": {
       "schema": "Player",
       "description": "Players registered in this project."
+    },
+    "/projects/{projectId}/members/{memberId}": {
+      "schema": "Member",
+      "description": "Members registered under this project."
     },
     "/users/{userId}": {
       "schema": "User",

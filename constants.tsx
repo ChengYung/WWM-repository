@@ -1,5 +1,5 @@
 
-import { MartialArts, TeamConfig, Availability } from './types';
+import { MartialArts, TeamConfig, Availability, HeartMethod } from './types';
 
 export const INITIAL_MARTIAL_ARTS: MartialArts[] = [
   { name: '無名劍法', color: '#0055b3' }, // Blue
@@ -74,3 +74,68 @@ export const SESSION_LABELS: Record<string, string> = {
   'NG3': '配對賽2230',
   'NG4': '配對賽2255'
 };
+
+export const INITIAL_HEART_METHODS: HeartMethod[] = [
+  // 金色
+  { name: '易水歌', description: '心法類型: 通用', rarity: 'gold', type: '通用' },
+  { name: '四時無常', description: '心法類型: 通用', rarity: 'gold', type: '通用' },
+  { name: '無名心法', description: '心法類型: 鳴金虹', rarity: 'gold', type: '鳴金虹' },
+  { name: '劍氣縱橫', description: '心法類型: 鳴金影', rarity: 'gold', type: '鳴金影' },
+  { name: '山河絕韻', description: '心法類型: 裂石威', rarity: 'gold', type: '裂石威' },
+  { name: '花上月令', description: '心法類型: 牽絲玉', rarity: 'gold', type: '牽絲玉' },
+  { name: '君臣藥', description: '心法類型: 牽絲霖', rarity: 'gold', type: '牽絲霖' },
+  { name: '忘川絕響', description: '心法類型: 破竹風', rarity: 'gold', type: '破竹風' },
+  { name: '千營一呼', description: '心法類型: 破竹塵', rarity: 'gold', type: '破竹塵' },
+  { name: '霜天白夜', description: '心法類型: 裂石鈞', rarity: 'gold', type: '裂石鈞' },
+
+  // 紫色
+  { name: '征人歸', description: '心法類型: 通用', rarity: 'purple', type: '通用' },
+  { name: '所恨年年', description: '心法類型: 通用', rarity: 'purple', type: '通用' },
+  { name: '歸燕經', description: '心法類型: 通用', rarity: 'purple', type: '通用' },
+  { name: '怒斬馬', description: '心法類型: 通用', rarity: 'purple', type: '通用' },
+  { name: '長生無相', description: '心法類型: 通用', rarity: 'purple', type: '通用' },
+  { name: '婆娑影', description: '心法類型: 通用', rarity: 'purple', type: '通用' },
+  { name: '明晦同塵', description: '心法類型: 通用', rarity: 'purple', type: '通用' },
+  { name: '丹心篆', description: '心法類型: 通用', rarity: 'purple', type: '通用' },
+  { name: '千山法', description: '心法類型: 鳴金虹', rarity: 'purple', type: '鳴金虹' },
+  { name: '威猛歌', description: '心法類型: 鳴金虹', rarity: 'purple', type: '鳴金虹' },
+  { name: '燎原星火', description: '心法類型: 鳴金虹', rarity: 'purple', type: '鳴金虹' },
+  { name: '逐狼心經', description: '心法類型: 鳴金影', rarity: 'purple', type: '鳴金影' },
+  { name: '移經易武', description: '心法類型: 鳴金影', rarity: 'purple', type: '鳴金影' },
+  { name: '凝神章', description: '心法類型: 鳴金影', rarity: 'purple', type: '鳴金影' },
+  { name: '困獸心經', description: '心法類型: 裂石威', rarity: 'purple', type: '裂石威' },
+  { name: '抗造大法', description: '心法類型: 裂石威', rarity: 'purple', type: '裂石威' },
+  { name: '磐石訣', description: '心法類型: 裂石威', rarity: 'purple', type: '裂石威' },
+  { name: '葫蘆飛飛', description: '心法類型: 牽絲玉', rarity: 'purple', type: '牽絲玉' },
+  { name: '春雷篇', description: '心法類型: 牽絲玉', rarity: 'purple', type: '牽絲玉' },
+  { name: '縱地摘星', description: '心法類型: 牽絲玉', rarity: 'purple', type: '牽絲玉' },
+  { name: '杏花不見', description: '心法類型: 牽絲霖', rarity: 'purple', type: '牽絲霖' },
+  { name: '指玄篇註', description: '心法類型: 牽絲霖', rarity: 'purple', type: '牽絲霖' },
+  { name: '千絲蟲', description: '心法類型: 牽絲霖', rarity: 'purple', type: '牽絲霖' },
+  { name: '心彌泥魚', description: '心法類型: 破竹風', rarity: 'purple', type: '破竹風' },
+  { name: '斷石之構', description: '心法類型: 破竹風', rarity: 'purple', type: '破竹風' },
+  { name: '滄浪劍訣', description: '心法類型: 破竹風', rarity: 'purple', type: '破竹風' },
+  { name: '繩舟行木', description: '心法類型: 破竹塵', rarity: 'purple', type: '破竹塵' },
+  { name: '燈兒亮', description: '心法類型: 破竹塵', rarity: 'purple', type: '破竹塵' },
+  { name: '大唐歌', description: '心法類型: 破竹塵', rarity: 'purple', type: '破竹塵' },
+  { name: '穿喉訣', description: '心法類型: 裂石鈞', rarity: 'purple', type: '裂石鈞' },
+  { name: '孤忠不辭', description: '心法類型: 裂石鈞', rarity: 'purple', type: '裂石鈞' },
+  { name: '燎原踏', description: '心法類型: 裂石鈞', rarity: 'purple', type: '裂石鈞' },
+
+  // 藍色
+  { name: '極樂泣血', description: '心法類型: 通用', rarity: 'blue', type: '通用' },
+  { name: '山月無影', description: '心法類型: 通用', rarity: 'blue', type: '通用' },
+  { name: '沙擺尾', description: '心法類型: 通用', rarity: 'blue', type: '通用' },
+  { name: '生龍活虎', description: '心法類型: 通用', rarity: 'blue', type: '通用' },
+  { name: '晚雪間', description: '心法類型: 通用', rarity: 'blue', type: '通用' },
+  { name: '鐵身訣', description: '心法類型: 通用', rarity: 'blue', type: '通用' },
+];
+
+export const INITIAL_WEAPON_SETS: string[] = [
+  '玉斗', '飛隼', '時雨', '斷嶽', '煙柳重重', '浣花', '燕歸', '連星', '急風驟', '嶽山傾'
+];
+
+export const INITIAL_ARMOR_SETS: string[] = [
+  '易相', '鷹揚', '桂月', '玄甲', '不知寒', '梨雪', '江凝', '抱玉', '凌波步', '御無缺'
+];
+

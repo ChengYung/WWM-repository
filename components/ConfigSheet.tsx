@@ -1,14 +1,26 @@
 
 import React, { useState } from 'react';
-import { MartialArts, Player } from '../types';
+import { MartialArts, Player, HeartMethod } from '../types';
 import { useToast } from './Toast';
+
+export const getRarityBadge = (rarity?: 'gold' | 'purple' | 'blue' | string) => {
+  if (rarity === 'gold' || rarity === '金色') return { label: '金色', bg: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' };
+  if (rarity === 'purple' || rarity === '紫色') return { label: '紫色', bg: 'bg-purple-500/20 text-purple-400 border border-purple-500/30' };
+  return { label: '藍色', bg: 'bg-blue-500/20 text-blue-400 border border-blue-500/30' };
+};
 
 interface ConfigSheetProps {
   martialArts: MartialArts[];
   teams: string[];
   players: Player[];
+  heartMethods?: HeartMethod[];
+  weaponSets?: string[];
+  armorSets?: string[];
   onUpdateMartialArts: (newMa: MartialArts[]) => void;
   onUpdateTeams: (newTeams: string[]) => void;
+  onUpdateHeartMethods?: (newHm: HeartMethod[]) => void;
+  onUpdateWeaponSets?: (newSets: string[]) => void;
+  onUpdateArmorSets?: (newSets: string[]) => void;
   onBatchUpdatePlayers: (updates: { id: string; team: string }[]) => void;
   onRestoreDefaults: () => void;
   showConfirm: (title: string, message: string, onConfirm: () => void) => void;
@@ -19,8 +31,14 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
   martialArts, 
   teams, 
   players,
+  heartMethods = [],
+  weaponSets = [],
+  armorSets = [],
   onUpdateMartialArts,
   onUpdateTeams,
+  onUpdateHeartMethods,
+  onUpdateWeaponSets,
+  onUpdateArmorSets,
   onBatchUpdatePlayers,
   onRestoreDefaults,
   showConfirm,
@@ -34,6 +52,94 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
   const [editingTeamIdx, setEditingTeamIdx] = useState<number | null>(null);
   const [editBuffer, setEditBuffer] = useState('');
   const { showToast } = useToast();
+
+  // Heart methods states
+  const [newHmName, setNewHmName] = useState('');
+  const [newHmDesc, setNewHmDesc] = useState('');
+  const [newHmRarity, setNewHmRarity] = useState<'gold' | 'purple' | 'blue' | string>('gold');
+  const [newHmType, setNewHmType] = useState('通用');
+  const [customHmType, setCustomHmType] = useState('');
+  const [editingHmIdx, setEditingHmIdx] = useState<number | null>(null);
+  const [editHmDescBuffer, setEditHmDescBuffer] = useState('');
+  const [editHmRarityBuffer, setEditHmRarityBuffer] = useState<'gold' | 'purple' | 'blue' | string>('gold');
+  const [editHmTypeBuffer, setEditHmTypeBuffer] = useState('通用');
+  const [editCustomHmType, setEditCustomHmType] = useState('');
+
+  // Equipment sets states
+  const [newWeaponSet, setNewWeaponSet] = useState('');
+  const [editingWeaponIdx, setEditingWeaponIdx] = useState<number | null>(null);
+  const [newArmorSet, setNewArmorSet] = useState('');
+  const [editingArmorIdx, setEditingArmorIdx] = useState<number | null>(null);
+
+  const addWeaponSet = () => {
+    if (!newWeaponSet || isRestricted) return;
+    const name = newWeaponSet.trim();
+    if (weaponSets.includes(name)) {
+      showToast('套裝名稱已存在！', 'error');
+      return;
+    }
+    if (onUpdateWeaponSets) {
+      onUpdateWeaponSets([...weaponSets, name]);
+    }
+    setNewWeaponSet('');
+  };
+
+  const removeWeaponSet = (index: number) => {
+    if (isRestricted || !onUpdateWeaponSets) return;
+    onUpdateWeaponSets(weaponSets.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateWeaponSet = (index: number) => {
+    if (isRestricted || !onUpdateWeaponSets) return;
+    const newVal = editBuffer.trim();
+    if (!newVal) {
+      setEditingWeaponIdx(null);
+      return;
+    }
+    if (weaponSets.includes(newVal) && weaponSets[index] !== newVal) {
+      showToast('套裝名稱已存在！', 'error');
+      return;
+    }
+    const updated = [...weaponSets];
+    updated[index] = newVal;
+    onUpdateWeaponSets(updated);
+    setEditingWeaponIdx(null);
+  };
+
+  const addArmorSet = () => {
+    if (!newArmorSet || isRestricted) return;
+    const name = newArmorSet.trim();
+    if (armorSets.includes(name)) {
+      showToast('套裝名稱已存在！', 'error');
+      return;
+    }
+    if (onUpdateArmorSets) {
+      onUpdateArmorSets([...armorSets, name]);
+    }
+    setNewArmorSet('');
+  };
+
+  const removeArmorSet = (index: number) => {
+    if (isRestricted || !onUpdateArmorSets) return;
+    onUpdateArmorSets(armorSets.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateArmorSet = (index: number) => {
+    if (isRestricted || !onUpdateArmorSets) return;
+    const newVal = editBuffer.trim();
+    if (!newVal) {
+      setEditingArmorIdx(null);
+      return;
+    }
+    if (armorSets.includes(newVal) && armorSets[index] !== newVal) {
+      showToast('套裝名稱已存在！', 'error');
+      return;
+    }
+    const updated = [...armorSets];
+    updated[index] = newVal;
+    onUpdateArmorSets(updated);
+    setEditingArmorIdx(null);
+  };
 
   const addMartialArt = () => {
     if (!newMaName || isRestricted) return;
@@ -63,6 +169,51 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
     } else {
       executeRemove();
     }
+  };
+
+  const addHeartMethod = () => {
+    if (!newHmName || isRestricted) return;
+    const finalType = newHmType === 'custom' ? customHmType.trim() : newHmType;
+    if (onUpdateHeartMethods) {
+      onUpdateHeartMethods([...heartMethods, { 
+        name: newHmName.trim(), 
+        description: newHmDesc.trim() || `心法類型: ${finalType}`, 
+        rarity: newHmRarity as any,
+        type: finalType
+      }]);
+    }
+    setNewHmName('');
+    setNewHmDesc('');
+    setNewHmRarity('gold');
+    setNewHmType('通用');
+    setCustomHmType('');
+  };
+
+  const removeHm = (index: number) => {
+    if (isRestricted) return;
+    if (onUpdateHeartMethods) {
+      onUpdateHeartMethods(heartMethods.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleUpdateHm = (index: number) => {
+    if (isRestricted || !onUpdateHeartMethods) return;
+    const newName = editBuffer.trim();
+    const newDesc = editHmDescBuffer.trim();
+    const finalType = editHmTypeBuffer === 'custom' ? editCustomHmType.trim() : editHmTypeBuffer;
+    if (!newName) {
+      setEditingHmIdx(null);
+      return;
+    }
+    const newHms = [...heartMethods];
+    newHms[index] = { 
+      name: newName, 
+      description: newDesc || `心法類型: ${finalType}`, 
+      rarity: editHmRarityBuffer as any,
+      type: finalType
+    };
+    onUpdateHeartMethods(newHms);
+    setEditingHmIdx(null);
   };
 
   const getAvailableSlots = () => {
@@ -255,7 +406,7 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
         </div>
       </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Martial Arts Config */}
         <section className={`bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 ${isRestricted ? 'opacity-80' : ''}`}>
           <h3 className="text-xl font-black mb-8 flex items-center gap-3 text-indigo-600 dark:text-indigo-400 uppercase tracking-tighter">
@@ -399,7 +550,7 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
                         setEditBuffer(team);
                         setEditingTeamIdx(idx);
                       }}
-                      className={`font-bold text-slate-400 group-hover:text-teal-400 text-xs ${isRestricted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                      className={`font-bold text-slate-400 group-hover:text-teal-405 text-xs ${isRestricted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       {team}
                     </span>
@@ -414,6 +565,348 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
             ))}
           </div>
         </section>
+
+        {/* Heart Methods Config */}
+        <section className={`bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
+          <h3 className="text-xl font-black mb-8 flex items-center gap-3 text-emerald-600 dark:text-emerald-400 uppercase tracking-tighter">
+            <i className="fa-solid fa-heart-pulse"></i>
+            心法配置
+          </h3>
+
+          <div className="flex flex-col gap-3 mb-8 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="space-y-4">
+              {/* Row 1: Name and Rarity */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-black text-slate-500 dark:text-slate-400 mb-1 uppercase">心法名稱</label>
+                  <input
+                    type="text"
+                    value={newHmName}
+                    onChange={(e) => setNewHmName(e.target.value)}
+                    disabled={isRestricted}
+                    placeholder="例如: 易水歌"
+                    className={`w-full p-2.5 bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-300 border border-slate-300 dark:border-slate-800 rounded-lg outline-none focus:border-emerald-500 text-xs ${isRestricted ? 'cursor-not-allowed' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-black text-slate-500 dark:text-slate-400 mb-1 uppercase">心法顏色等級</label>
+                  <select
+                    value={newHmRarity}
+                    onChange={(e) => setNewHmRarity(e.target.value)}
+                    disabled={isRestricted}
+                    className={`w-full p-2.5 bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-300 border border-slate-300 dark:border-slate-800 rounded-lg outline-none focus:border-emerald-500 text-xs ${isRestricted ? 'cursor-not-allowed' : ''}`}
+                  >
+                    <option value="gold">金色</option>
+                    <option value="purple">紫色</option>
+                    <option value="blue">藍色</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: Heart Method Type (心法類型) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-black text-slate-500 dark:text-slate-400 mb-1 uppercase">選擇心法類型</label>
+                  <select
+                    value={newHmType}
+                    onChange={(e) => setNewHmType(e.target.value)}
+                    disabled={isRestricted}
+                    className={`w-full p-2.5 bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-300 border border-slate-300 dark:border-slate-800 rounded-lg outline-none focus:border-emerald-500 text-xs ${isRestricted ? 'cursor-not-allowed' : ''}`}
+                  >
+                    {['通用', '鳴金虹', '鳴金影', '裂石威', '牽絲玉', '牽絲霖', '破竹風', '破竹塵', '裂石鈞'].map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                    <option value="custom">自訂 / 手動輸入...</option>
+                  </select>
+                </div>
+
+                {newHmType === 'custom' && (
+                  <div>
+                    <label className="block text-[11px] font-black text-slate-500 dark:text-slate-400 mb-1 uppercase">輸入自訂類型</label>
+                    <input
+                      type="text"
+                      value={customHmType}
+                      onChange={(e) => setCustomHmType(e.target.value)}
+                      disabled={isRestricted}
+                      placeholder="例如: 乾坤、無上"
+                      className={`w-full p-2.5 bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-300 border border-slate-300 dark:border-slate-800 rounded-lg outline-none focus:border-emerald-500 text-xs ${isRestricted ? 'cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={addHeartMethod}
+                disabled={!newHmName || isRestricted || (newHmType === 'custom' && !customHmType)}
+                className={`w-full py-2.5 font-black rounded-xl transition-all shadow-lg text-xs ${
+                  newHmName && (!isRestricted && (newHmType !== 'custom' || customHmType))
+                  ? 'bg-emerald-600 hover:bg-emerald-505 text-white shadow-emerald-600/10'
+                  : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                }`}
+              >
+                新增心法項目
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2">
+            {heartMethods.map((hm, idx) => {
+              const badge = getRarityBadge(hm.rarity);
+              return (
+                <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-emerald-501/30 transition-all space-y-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1">
+                      {editingHmIdx === idx && !isRestricted ? (
+                        <div className="space-y-3 p-2 bg-white dark:bg-[#020617] rounded-xl border border-slate-200 dark:border-slate-800">
+                          {/* Edit form */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[8px] font-black text-slate-400 mb-0.5">心法名稱</label>
+                              <input
+                                className="w-full bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-300 text-xs font-bold p-1 border border-slate-300 dark:border-slate-800 rounded outline-none focus:border-emerald-500"
+                                value={editBuffer}
+                                onChange={(e) => setEditBuffer(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[8px] font-black text-slate-400 mb-0.5">顏色等級</label>
+                              <select
+                                className="w-full bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-300 text-xs p-1 border border-slate-300 dark:border-slate-800 rounded outline-none focus:border-emerald-500"
+                                value={editHmRarityBuffer}
+                                onChange={(e) => setEditHmRarityBuffer(e.target.value)}
+                              >
+                                <option value="gold">金色</option>
+                                <option value="purple">紫色</option>
+                                <option value="blue">藍色</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[8px] font-black text-slate-400 mb-0.5">心法類型</label>
+                              <select
+                                className="w-full bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-300 text-xs p-1 border border-slate-300 dark:border-slate-800 rounded outline-none focus:border-emerald-500"
+                                value={editHmTypeBuffer}
+                                onChange={(e) => setEditHmTypeBuffer(e.target.value)}
+                              >
+                                {['通用', '鳴金虹', '鳴金影', '裂石威', '牽絲玉', '牽絲霖', '破竹風', '破竹塵', '裂石鈞'].map(type => (
+                                  <option key={type} value={type}>{type}</option>
+                                ))}
+                                <option value="custom">自訂 / 手動輸入...</option>
+                              </select>
+                            </div>
+                            {editHmTypeBuffer === 'custom' && (
+                              <div>
+                                <label className="block text-[8px] font-black text-slate-400 mb-0.5">自訂值</label>
+                                <input
+                                  className="w-full bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-300 text-xs p-1 border border-slate-300 dark:border-slate-800 rounded outline-none focus:border-emerald-500"
+                                  value={editCustomHmType}
+                                  onChange={(e) => setEditCustomHmType(e.target.value)}
+                                  placeholder="自訂類型"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex justify-end gap-2 pr-1">
+                            <button
+                              type="button"
+                              onClick={() => setEditingHmIdx(null)}
+                              className="px-2 py-1 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded text-[10px] font-bold"
+                            >
+                              取消
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateHm(idx)}
+                              className="px-3 py-1 bg-emerald-600 text-white hover:bg-emerald-500 rounded text-[10px] font-bold"
+                            >
+                              儲存
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {hm.type && (
+                            <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                              {hm.type}
+                            </span>
+                          )}
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${badge.bg}`}>
+                            {badge.label}
+                          </span>
+                          <span 
+                            onClick={() => {
+                              if (isRestricted) return;
+                              setEditBuffer(hm.name);
+                              setEditHmDescBuffer(hm.description || "");
+                              setEditHmRarityBuffer(hm.rarity || 'gold');
+                              const predefinedList = ['通用', '鳴金虹', '鳴金影', '裂石威', '牽絲玉', '牽絲霖', '破竹風', '破竹塵', '裂石鈞'];
+                              if (predefinedList.includes(hm.type || '')) {
+                                setEditHmTypeBuffer(hm.type || '通用');
+                                setEditCustomHmType('');
+                              } else {
+                                setEditHmTypeBuffer('custom');
+                                setEditCustomHmType(hm.type || '');
+                              }
+                              setEditingHmIdx(idx);
+                            }}
+                            className={`font-semibold text-slate-705 dark:text-slate-200 group-hover:text-emerald-400 text-xs ${isRestricted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                          >
+                            {hm.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {editingHmIdx !== idx && !isRestricted && (
+                      <button onClick={() => removeHm(idx)} className="text-slate-400 hover:text-red-500 transition-colors">
+                        <i className="fa-solid fa-circle-xmark text-sm"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Equipment Sets Config */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:col-span-2">
+          {/* Weapon Sets Config */}
+          <section className={`bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
+            <h3 className="text-xl font-black mb-8 flex items-center gap-3 text-amber-600 dark:text-amber-400 uppercase tracking-tighter">
+              <i className="fa-solid fa-gavel"></i>
+              武器裝備套裝
+            </h3>
+
+            <div className="flex flex-col gap-3 mb-8 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={newWeaponSet}
+                  onChange={(e) => setNewWeaponSet(e.target.value)}
+                  disabled={isRestricted}
+                  placeholder="新增武器套裝 (如: 玉斗)"
+                  className={`flex-1 p-2 bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-300 border border-slate-300 dark:border-slate-800 rounded-lg outline-none focus:border-amber-500 text-xs ${isRestricted ? 'cursor-not-allowed' : ''}`}
+                />
+                <button
+                  onClick={addWeaponSet}
+                  disabled={!newWeaponSet || isRestricted}
+                  className={`px-6 py-2 font-black rounded-xl transition-all shadow-lg text-xs ${
+                    newWeaponSet && !isRestricted
+                    ? 'bg-amber-600 hover:bg-amber-505 text-white shadow-amber-600/10'
+                    : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                  }`}
+                >
+                  新增
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2">
+              {weaponSets.map((ws, idx) => (
+                <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-amber-500/30 transition-all">
+                  <div className="flex-1">
+                    {editingWeaponIdx === idx && !isRestricted ? (
+                      <input
+                        autoFocus
+                        className="bg-[#0f172a] text-amber-400 font-bold text-xs outline-none border-b border-amber-500 w-full"
+                        value={editBuffer}
+                        onChange={(e) => setEditBuffer(e.target.value)}
+                        onBlur={() => handleUpdateWeaponSet(idx)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleUpdateWeaponSet(idx)}
+                      />
+                    ) : (
+                      <span 
+                        onClick={() => {
+                          if (isRestricted) return;
+                          setEditBuffer(ws);
+                          setEditingWeaponIdx(idx);
+                        }}
+                        className={`font-bold text-slate-600 dark:text-slate-300 group-hover:text-amber-400 text-xs ${isRestricted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        {ws}
+                      </span>
+                    )}
+                  </div>
+                  {!isRestricted && (
+                    <button onClick={() => removeWeaponSet(idx)} className="text-slate-400 hover:text-red-500 transition-colors ml-2">
+                      <i className="fa-solid fa-circle-xmark"></i>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Armor Sets Config */}
+          <section className={`bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
+            <h3 className="text-xl font-black mb-8 flex items-center gap-3 text-sky-600 dark:text-sky-400 uppercase tracking-tighter">
+              <i className="fa-solid fa-shield-halved"></i>
+              防具裝備套裝
+            </h3>
+
+            <div className="flex flex-col gap-3 mb-8 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={newArmorSet}
+                  onChange={(e) => setNewArmorSet(e.target.value)}
+                  disabled={isRestricted}
+                  placeholder="新增防具套裝 (如: 易相)"
+                  className={`flex-1 p-2 bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-300 border border-slate-300 dark:border-slate-800 rounded-lg outline-none focus:border-sky-500 text-xs ${isRestricted ? 'cursor-not-allowed' : ''}`}
+                />
+                <button
+                  onClick={addArmorSet}
+                  disabled={!newArmorSet || isRestricted}
+                  className={`px-6 py-2 font-black rounded-xl transition-all shadow-lg text-xs ${
+                    newArmorSet && !isRestricted
+                    ? 'bg-sky-600 hover:bg-sky-505 text-white shadow-sky-600/10'
+                    : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                  }`}
+                >
+                  新增
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2">
+              {armorSets.map((as, idx) => (
+                <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-sky-500/30 transition-all">
+                  <div className="flex-1">
+                    {editingArmorIdx === idx && !isRestricted ? (
+                      <input
+                        autoFocus
+                        className="bg-[#0f172a] text-sky-400 font-bold text-xs outline-none border-b border-sky-500 w-full"
+                        value={editBuffer}
+                        onChange={(e) => setEditBuffer(e.target.value)}
+                        onBlur={() => handleUpdateArmorSet(idx)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleUpdateArmorSet(idx)}
+                      />
+                    ) : (
+                      <span 
+                        onClick={() => {
+                          if (isRestricted) return;
+                          setEditBuffer(as);
+                          setEditingArmorIdx(idx);
+                        }}
+                        className={`font-bold text-slate-600 dark:text-slate-300 group-hover:text-sky-400 text-xs ${isRestricted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        {as}
+                      </span>
+                    )}
+                  </div>
+                  {!isRestricted && (
+                    <button onClick={() => removeArmorSet(idx)} className="text-slate-400 hover:text-red-500 transition-colors ml-2">
+                      <i className="fa-solid fa-circle-xmark"></i>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );

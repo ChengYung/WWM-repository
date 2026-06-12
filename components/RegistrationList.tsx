@@ -1,12 +1,43 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react';
 import * as XLSX from 'xlsx';
-import { Player, MartialArts, Availability } from '../types';
+import { Player, MartialArts, Availability, Member, HeartMethod } from '../types';
 import { useMartialArtsFilter } from '../hooks/useMartialArtsFilter';
 import { SESSION_LABELS } from '../constants';
 import { useToast } from './Toast';
 import { ConfirmModal } from './ConfirmModal';
 import { SmartAssignPanel } from './SmartAssignPanel';
+
+const HeartMethodTooltip: React.FC<{ name: string; projectHeartMethods?: HeartMethod[] }> = ({ name, projectHeartMethods = [] }) => {
+  const method = projectHeartMethods.find(m => m.name === name) || { name, description: '暫無詳細描述' };
+  const initial = name.slice(0, 2);
+  const rarity = (method as HeartMethod).rarity || 'blue';
+
+  let rarityClasses = 'border-blue-500/40 bg-[#1e3a8a]/40 hover:bg-blue-500/30 hover:border-blue-400 text-blue-400';
+  let titleColor = 'text-blue-400';
+  
+  if (rarity === 'gold') {
+    rarityClasses = 'border-amber-500/40 bg-[#78350f]/40 hover:bg-amber-500/30 hover:border-amber-400 text-amber-400';
+    titleColor = 'text-amber-400';
+  } else if (rarity === 'purple') {
+    rarityClasses = 'border-purple-500/40 bg-[#581c87]/40 hover:bg-purple-500/30 hover:border-purple-400 text-purple-400';
+    titleColor = 'text-purple-405';
+  }
+
+  return (
+    <div className="relative group/tooltip inline-block" onClick={(e) => e.stopPropagation()}>
+      <div className={`w-8 h-8 rounded-full border ${rarityClasses} flex items-center justify-center font-black text-[10px] cursor-pointer shadow-lg transition-all transform hover:scale-110`}>
+        {initial}
+      </div>
+      {/* Tooltip box */}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-950 border border-slate-800 text-slate-100 rounded-xl p-3 shadow-2xl opacity-0 scale-95 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:scale-100 group-hover/tooltip:pointer-events-auto transition-all z-50">
+        <div className={`font-bold text-xs ${titleColor} pb-1 border-b border-slate-800/80 mb-1`}>{method.name}</div>
+        <p className="text-[10px] text-slate-400 leading-normal font-semibold whitespace-pre-line">{method.description}</p>
+        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-950"></div>
+      </div>
+    </div>
+  );
+};
 
 interface PlayerRowProps {
   player: Player;
@@ -22,13 +53,23 @@ interface PlayerRowProps {
   teams: string[];
   martialArts: MartialArts[];
   isRestricted?: boolean;
+  members: Member[];
+  heartMethods: HeartMethod[];
 }
 
 const PlayerRow = memo(({ 
-  player, isEditing, isNew, isFiltered, selected, onToggleSelect, onStartEdit, onEdit, onDelete, onUpdateTeam, teams, martialArts, isRestricted 
+  player, isEditing, isNew, isFiltered, selected, onToggleSelect, onStartEdit, onEdit, onDelete, onUpdateTeam, teams, martialArts, isRestricted, members, heartMethods 
 }: PlayerRowProps) => {
   const [showAssignDropdown, setShowAssignDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const matchedMember = useMemo(() => {
+    return members?.find(m => m.gameName.trim().toLowerCase() === player.gameId.trim().toLowerCase());
+  }, [members, player.gameId]);
+
+  const displayNoSelf = matchedMember ? (matchedMember.noSelf || false) : (player.noSelf || false);
+  const displayHasDc = matchedMember ? (matchedMember.hasDc || false) : (player.hasDc || false);
+  const displayCanMic = matchedMember ? (matchedMember.canMic || false) : (player.canMic || false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -80,157 +121,278 @@ const PlayerRow = memo(({
                 onChange={(e) => onEdit({ ...player, gameId: e.target.value })}
               />
             ) : (
-              <span className="text-sm font-black text-white">{player.gameId}</span>
+              <span className="text-sm font-extrabold text-slate-100 group-hover:text-white transition-colors">{player.gameId}</span>
             )}
             {isNew && !isEditing && <span className="px-1.5 py-0.5 bg-blue-600 text-[8px] font-black text-white rounded uppercase animate-pulse">NEW</span>}
             {isFiltered && !isEditing && <i className="fa-solid fa-star text-emerald-500 text-[10px]"></i>}
           </div>
-          <div className="flex md:hidden flex-wrap gap-1">
-              {player.martialArts.map(ma => {
-                const maObj = martialArts.find(m => m.name === ma);
-                return (
-                  <span 
-                    key={ma} 
-                    onClick={(e) => {
-                      if (isEditing) {
+          
+          <div className="flex items-center gap-1.5 mt-1" onClick={(e) => e.stopPropagation()}>
+            {isEditing ? (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onEdit({ ...player, noSelf: !player.noSelf })}
+                  className={`w-5 h-5 rounded flex items-center justify-center text-[10px] transition-all border ${
+                    player.noSelf ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400 font-bold' : 'bg-slate-800 border-slate-700 text-slate-650'
+                  }`}
+                  title="無我"
+                >
+                  <i className="fa-solid fa-trophy text-[8px]"></i>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEdit({ ...player, hasDc: !player.hasDc })}
+                  className={`w-5 h-5 rounded flex items-center justify-center text-[10px] transition-all border ${
+                    player.hasDc ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400 font-bold' : 'bg-slate-800 border-slate-700 text-slate-650'
+                  }`}
+                  title="DC"
+                >
+                  <i className="fa-brands fa-discord text-[8px]"></i>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEdit({ ...player, canMic: !player.canMic })}
+                  className={`w-5 h-5 rounded flex items-center justify-center text-[10px] transition-all border ${
+                    player.canMic ? 'bg-green-500/20 border-green-500 text-green-400 font-bold' : 'bg-slate-800 border-slate-700 text-slate-650'
+                  }`}
+                  title="開Mic"
+                >
+                  <i className="fa-solid fa-microphone text-[8px]"></i>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                {displayNoSelf && (
+                  <span className="w-5 h-5 rounded-full bg-yellow-500/10 border border-yellow-500/25 flex items-center justify-center hover:scale-110 transition-transform" title="無我">
+                    <i className="fa-solid fa-trophy text-yellow-500 text-[9px]"></i>
+                  </span>
+                )}
+                {displayHasDc && (
+                  <span className="w-5 h-5 rounded-full bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center hover:scale-110 transition-transform" title="Discord (DC)">
+                    <i className="fa-brands fa-discord text-indigo-400 text-[9px]"></i>
+                  </span>
+                )}
+                {displayCanMic && (
+                  <span className="w-5 h-5 rounded-full bg-green-500/10 border border-green-500/25 flex items-center justify-center hover:scale-110 transition-transform" title="可開麥">
+                    <i className="fa-solid fa-microphone text-green-450 text-[9px]"></i>
+                  </span>
+                )}
+                {!displayNoSelf && !displayHasDc && !displayCanMic && (
+                  <span className="text-slate-600 font-bold px-1 text-[10px]">-</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </td>
+
+      <td className="p-3 text-left" onClick={(e) => e.stopPropagation()}>
+        {isEditing ? (
+          <div className="flex flex-col gap-2 p-1.5 bg-slate-950/40 rounded-xl border border-slate-800 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-slate-400">戰力指數:</span>
+              <input
+                className="bg-[#1e293b] border border-blue-500/50 rounded px-2 py-0.5 text-xs font-black text-white w-20 text-center outline-none bg-slate-900"
+                value={player.power || ''}
+                onChange={(e) => onEdit({ ...player, power: e.target.value })}
+                placeholder="e.g. 3.0"
+              />
+              <span className="text-[10.5px] text-slate-500 font-bold">鵝</span>
+            </div>
+            
+            <div className="space-y-1">
+              <span className="text-[10px] font-black text-slate-400 block">登錄武學:</span>
+              <div className="flex flex-wrap gap-1">
+                {player.martialArts.map((ma, i) => {
+                  const maObj = martialArts.find(m => m.name === ma);
+                  return (
+                    <span 
+                      key={`${ma}-${i}`} 
+                      onClick={(e) => {
                         e.stopPropagation();
                         onEdit({ ...player, martialArts: player.martialArts.filter(m => m !== ma) });
-                      }
-                    }}
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold ${isEditing ? 'bg-red-500/20 text-red-400 hover:bg-red-500/40' : 'bg-slate-800 text-slate-400'}`}
-                  >
-                    <span className="w-1 h-1 rounded-full" style={{ backgroundColor: maObj?.color }}></span>
-                    {ma}
-                    {isEditing && <i className="fa-solid fa-xmark ml-1"></i>}
-                  </span>
-                );
-              })}
-              {isEditing && (
-                <select 
-                  className="bg-slate-800 text-[8px] rounded px-1"
-                  onChange={(e) => {
-                    if (e.target.value && !player.martialArts.includes(e.target.value)) {
-                      onEdit({ ...player, martialArts: [...player.martialArts, e.target.value] });
-                    }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="">+ 新增武學</option>
-                  {martialArts.filter(m => !player.martialArts.includes(m.name)).map(m => (
-                    <option key={m.name} value={m.name}>{m.name}</option>
-                  ))}
-                </select>
-              )}
-          </div>
-        </div>
-      </td>
-      <td className="p-3" onClick={(e) => e.stopPropagation()}>
-        {isEditing ? (
-          <input
-            className="bg-[#1e293b] border border-blue-500/50 rounded px-2 py-1 text-sm font-black text-white w-20 text-center outline-none mx-auto block"
-            value={player.power || ''}
-            onChange={(e) => onEdit({ ...player, power: e.target.value })}
-            placeholder="e.g. 3.0"
-          />
-        ) : (
-          <span className="text-sm font-bold text-slate-350 flex justify-center">{player.power || '-'}</span>
-        )}
-      </td>
-      <td className="p-3" onClick={(e) => e.stopPropagation()}>
-        {isEditing ? (
-          <div className="flex items-center justify-center gap-1.5">
-            <button
-              onClick={() => onEdit({ ...player, noSelf: !player.noSelf })}
-              className={`w-6 h-6 rounded flex items-center justify-center text-[10px] transition-all border ${
-                player.noSelf ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400 font-bold' : 'bg-slate-800 border-slate-700 text-slate-600'
-              }`}
-              title="無我"
-            >
-              <i className="fa-solid fa-trophy text-[9px]"></i>
-            </button>
-            <button
-              onClick={() => onEdit({ ...player, hasDc: !player.hasDc })}
-              className={`w-6 h-6 rounded flex items-center justify-center text-[10px] transition-all border ${
-                player.hasDc ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400 font-bold' : 'bg-slate-800 border-slate-700 text-slate-600'
-              }`}
-              title="DC"
-            >
-              <i className="fa-brands fa-discord text-[9px]"></i>
-            </button>
-            <button
-              onClick={() => onEdit({ ...player, canMic: !player.canMic })}
-              className={`w-6 h-6 rounded flex items-center justify-center text-[10px] transition-all border ${
-                player.canMic ? 'bg-green-500/20 border-green-500 text-green-400 font-bold' : 'bg-slate-800 border-slate-700 text-slate-600'
-              }`}
-              title="開Mic"
-            >
-              <i className="fa-solid fa-microphone text-[9px]"></i>
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center gap-2">
-            {player.noSelf && (
-              <span className="w-6 h-6 rounded-full bg-yellow-500/10 border border-yellow-500/25 flex items-center justify-center hover:scale-110 transition-transform active:scale-95" title="無我">
-                <i className="fa-solid fa-trophy text-yellow-500 text-[10.5px]"></i>
-              </span>
-            )}
-            {player.hasDc && (
-              <span className="w-6 h-6 rounded-full bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center hover:scale-110 transition-transform active:scale-95" title="Discord (DC)">
-                <i className="fa-brands fa-discord text-indigo-450 text-[10.5px]"></i>
-              </span>
-            )}
-            {player.canMic && (
-              <span className="w-6 h-6 rounded-full bg-green-500/10 border border-green-500/25 flex items-center justify-center hover:scale-110 transition-transform active:scale-95" title="可開麥">
-                <i className="fa-solid fa-microphone text-green-450 text-[10.5px]"></i>
-              </span>
-            )}
-            {!player.noSelf && !player.hasDc && !player.canMic && <span className="text-slate-600 font-bold">-</span>}
-          </div>
-        )}
-      </td>
-      <td className="p-3 hidden md:table-cell">
-        <div className="grid grid-cols-2 gap-1 w-max max-w-[130px]">
-          {player.martialArts.map(ma => {
-            const maObj = martialArts.find(m => m.name === ma);
-            return (
-              <span 
-                key={ma} 
-                onClick={(e) => {
-                  if (isEditing) {
-                    e.stopPropagation();
-                    onEdit({ ...player, martialArts: player.martialArts.filter(m => m !== ma) });
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[9px] font-bold bg-[#020617] border-slate-800 text-slate-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 cursor-pointer transition-all truncate"
+                      title="點擊刪除"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: maObj?.color }}></span>
+                      {ma}
+                      <i className="fa-solid fa-circle-xmark ml-1 text-[8px] opacity-60"></i>
+                    </span>
+                  );
+                })}
+              </div>
+              <select 
+                className="bg-[#020617] text-[10px] border border-slate-800 rounded px-1.5 py-0.5 outline-none font-bold w-full text-slate-300"
+                onChange={(e) => {
+                  if (e.target.value && !player.martialArts.includes(e.target.value)) {
+                    onEdit({ ...player, martialArts: [...player.martialArts, e.target.value] });
                   }
                 }}
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[9px] font-bold transition-all justify-start truncate ${
-                  isEditing 
-                  ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white cursor-pointer' 
-                  : 'bg-[#020617] border-slate-800 text-slate-400'
-                }`}
-                title={ma}
+                onClick={(e) => e.stopPropagation()}
+                value=""
               >
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: maObj?.color }}></span>
-                <span className="truncate">{ma}</span>
-                {isEditing && <i className="fa-solid fa-circle-xmark ml-auto opacity-50 text-[8px]"></i>}
-              </span>
-            );
-          })}
-          {isEditing && (
-            <select 
-              className="col-span-2 bg-slate-800 text-[9px] border border-blue-500/30 rounded px-1.5 py-0.5 outline-none text-blue-400 font-bold w-full"
-              onChange={(e) => {
-                if (e.target.value && !player.martialArts.includes(e.target.value)) {
-                  onEdit({ ...player, martialArts: [...player.martialArts, e.target.value] });
-                }
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <option value="">+ 新增</option>
-              {martialArts.filter(m => !player.martialArts.includes(m.name)).map(m => (
-                <option key={m.name} value={m.name}>{m.name}</option>
-              ))}
-            </select>
-          )}
-        </div>
+                <option value="" className="text-slate-500">+ 新增武學</option>
+                {martialArts.filter(m => !player.martialArts.includes(m.name)).map(m => (
+                  <option key={m.name} value={m.name} style={{ color: m.color || '#94a3b8' }} className="font-bold bg-[#020617]">
+                    ● {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {(() => {
+              const matchedMember = members?.find(m => m.gameName.trim().toLowerCase() === player.gameId.trim().toLowerCase());
+              if (matchedMember && matchedMember.combos && matchedMember.combos.length > 0) {
+                return (
+                  <div className="mt-2 pt-2 border-t border-slate-800/80">
+                    <span className="text-[10px] font-black text-slate-400 block mb-1">
+                      選擇要登錄/修改的成員搭配:
+                    </span>
+                    <div className="flex flex-col gap-1">
+                      {matchedMember.combos.map((combo, idx) => {
+                        const isCurrentlySelected = 
+                          player.power === String(combo.power) &&
+                          player.martialArts.length === combo.arts.length &&
+                          player.martialArts.every(art => combo.arts.includes(art));
+                          
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEdit({
+                                ...player,
+                                power: String(combo.power),
+                                martialArts: [...combo.arts]
+                              });
+                            }}
+                            className={`w-full text-left p-1.5 rounded-lg border text-[9px] font-black tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                              isCurrentlySelected
+                                ? 'bg-blue-500/10 border-blue-550 text-blue-400'
+                                : 'bg-[#020617] border-slate-800 hover:border-slate-700 text-slate-450 hover:text-slate-300'
+                            }`}
+                          >
+                            <span className="truncate max-w-[180px]">{combo.name}: {combo.arts.join(' + ')}</span>
+                            <span className="bg-blue-950/20 border border-blue-900/30 px-1 py-0.2 rounded font-mono text-[8px] text-blue-400 shrink-0">
+                              {combo.power} 鵝
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5 w-full max-w-md items-start text-left justify-start">
+            {(() => {
+              const matchedMember = members?.find(m => m.gameName.trim().toLowerCase() === player.gameId.trim().toLowerCase());
+              const sortedCombos = matchedMember?.combos || [];
+              const getMartialArtColor = (name: string) => {
+                return martialArts.find(m => m.name === name)?.color || '#94a3b8';
+              };
+              
+              const formatArtName = (name: string): string => {
+                if (!name) return '';
+                return name.length > 5 ? name.substring(0, 5) + '..' : name;
+              };
+
+              // If registered member has combos, stack them vertically
+              if (sortedCombos && sortedCombos.length > 0) {
+                return (
+                  <div className="flex flex-col gap-2 w-full">
+                    {sortedCombos.map((combo, idx) => (
+                      <div key={idx} className="flex flex-wrap items-center gap-2 text-[9px] py-0.5 text-left justify-start w-full select-none">
+                        <span className="font-extrabold text-[#f59e0b] bg-[#f59e0b]/5 border border-[#f59e0b]/20 px-1.5 py-0.5 rounded text-[8px] min-w-[24px] text-center shrink-0">
+                          {combo.name || `搭配${idx + 1}`}
+                        </span>
+                        <div className="flex flex-wrap items-center gap-1 font-bold text-slate-200">
+                          {combo.arts && combo.arts.filter(Boolean).map((art, aIdx) => (
+                            <React.Fragment key={aIdx}>
+                              {aIdx > 0 && <span className="text-[8px] text-slate-650 font-black shrink-0">+</span>}
+                              <span 
+                                className="px-1.5 py-0.5 rounded text-[8.5px] font-semibold text-slate-200 bg-slate-950/20 border border-slate-800/60 flex items-center gap-1 shrink-0"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: getMartialArtColor(art) || '#94a3b8' }}></span>
+                                {formatArtName(art)}
+                              </span>
+                            </React.Fragment>
+                          ))}
+                          {(!combo.arts || combo.arts.filter(Boolean).length === 0) && (
+                            <span className="text-[9px] text-slate-600 italic font-semibold shrink-0">無登錄武學</span>
+                          )}
+                        </div>
+                        
+                        <span className="bg-blue-950/30 border border-blue-900/40 text-blue-400 font-mono text-[8.5px] font-extrabold px-1.5 py-0.5 rounded shadow whitespace-nowrap shrink-0">
+                          {combo.power || 0} 鵝
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+
+              // Otherwise, not using a matching saved combo: show all of player's actual martial arts grouped 2 per line
+              const artPairs: string[][] = [];
+              const artsToUse = player.martialArts || [];
+              for (let i = 0; i < artsToUse.length; i += 2) {
+                artPairs.push(artsToUse.slice(i, i + 2));
+              }
+
+              if (artPairs.length === 0) {
+                return (
+                  <div className="flex items-center gap-2 text-[9px] py-0.5 whitespace-nowrap text-left justify-start w-full select-none">
+                    <span className="text-[9px] text-slate-600 italic font-semibold shrink-0">無登錄武學</span>
+                    {player.power && (
+                      <span className="bg-blue-950/30 border border-blue-900/40 text-blue-400 font-mono text-[8.5px] font-extrabold px-2 py-0.5 rounded shadow whitespace-nowrap shrink-0">
+                        {player.power} 鵝
+                      </span>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-1 w-full">
+                  {artPairs.map((pair, pIdx) => (
+                    <div key={pIdx} className="flex items-center gap-2 text-[9px] py-0.5 whitespace-nowrap text-left justify-start w-full select-none">
+                      <div className="flex items-center gap-1 font-bold text-slate-200">
+                        {pair[0] && (
+                          <span 
+                            className="px-1.5 py-0.5 rounded text-[8.5px] font-semibold text-slate-200 bg-slate-950/20 border border-slate-800/60 flex items-center gap-1 shrink-0"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: getMartialArtColor(pair[0]) || '#94a3b8' }}></span>
+                            {formatArtName(pair[0])}
+                          </span>
+                        )}
+                        {pair[1] && <span className="text-[8px] text-slate-650 font-black shrink-0">+</span>}
+                        {pair[1] && (
+                          <span 
+                            className="px-1.5 py-0.5 rounded text-[8.5px] font-semibold text-slate-200 bg-[#020617]/50 border border-slate-800/60 flex items-center gap-1 shrink-0"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: getMartialArtColor(pair[1]) || '#94a3b8' }}></span>
+                            {formatArtName(pair[1])}
+                          </span>
+                        )}
+                      </div>
+                      {pIdx === 0 && (
+                        <span className="bg-blue-950/30 border border-blue-900/40 text-blue-400 font-mono text-[8.5px] font-extrabold px-2 py-0.5 rounded shadow whitespace-nowrap shrink-0">
+                          {player.power || '-'} 鵝
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </td>
       <td className="p-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-col gap-1.5 justify-center items-start">
@@ -303,7 +465,7 @@ const PlayerRow = memo(({
                             : 'bg-[#020617] border-slate-800 hover:border-slate-700'
                         } ${
                           s === 'RK1'
-                            ? (isSelected ? 'text-yellow-300' : 'text-amber-500/50')
+                            ? 'text-yellow-400 font-extrabold'
                             : (isSelected ? 'text-cyan-200' : 'text-cyan-600/50')
                         }`}
                       >
@@ -385,7 +547,7 @@ const PlayerRow = memo(({
                             : 'bg-[#020617] border-slate-800 hover:border-slate-700'
                         } ${
                           s === 'RK1'
-                            ? (isSelected ? 'text-yellow-355' : 'text-amber-500/50')
+                            ? 'text-yellow-400 font-extrabold'
                             : (isSelected ? 'text-cyan-200' : 'text-cyan-600/50')
                         }`}
                       >
@@ -637,11 +799,14 @@ interface RegistrationListProps {
   onClearPlayers: () => void;
   onResetTeams: () => void;
   onEditPlayer: (player: Player) => void;
+  onUpdateMember?: (member: Member) => Promise<void>;
   martialArts: MartialArts[];
   teams: string[];
   availabilityOptions: Availability[];
   isRestricted?: boolean;
   projectName?: string;
+  members?: Member[];
+  heartMethods?: HeartMethod[];
 }
 
 export const RegistrationList: React.FC<RegistrationListProps> = ({
@@ -652,11 +817,14 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
   onClearPlayers,
   onResetTeams,
   onEditPlayer,
+  onUpdateMember,
   martialArts,
   teams,
   availabilityOptions,
   isRestricted,
-  projectName
+  projectName,
+  members = [],
+  heartMethods = []
 }) => {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
   const [activeMas, setActiveMas] = useState<string[]>(["無名劍法", "嗟夫刀法", "青山執筆", "明川藥典"]);
@@ -676,8 +844,6 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
     canMic: 'none'
   });
 
-  const [powerSort, setPowerSort] = useState<'none' | 'desc' | 'asc'>('none');
-
   const { showToast } = useToast();
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -688,6 +854,27 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
 
   const [showSmartAssign, setShowSmartAssign] = useState(false);
   const [smartTargetSession, setSmartTargetSession] = useState<string>('SAT_RK1');
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
+
+  const playersWithComboArts = useMemo(() => {
+    return players.map(p => {
+      const matchedMember = members.find(m => m.gameName.trim().toLowerCase() === p.gameId.trim().toLowerCase());
+      const comboArtsSet = new Set<string>(p.martialArts || []);
+      if (matchedMember?.combos) {
+        matchedMember.combos.forEach(combo => {
+          if (combo.arts) {
+            combo.arts.forEach(art => {
+              if (art) comboArtsSet.add(art);
+            });
+          }
+        });
+      }
+      return {
+        ...p,
+        martialArts: Array.from(comboArtsSet)
+      };
+    });
+  }, [players, members]);
 
   const {
     maFilter,
@@ -707,7 +894,7 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
     closeSummaryManually,
     getMatchingPlayerIds,
     getDeselectPlayerIds
-  } = useMartialArtsFilter(players, teams);
+  } = useMartialArtsFilter(playersWithComboArts, teams);
 
   const parsePower = (powerStr?: string): number => {
     if (!powerStr) return 0;
@@ -716,43 +903,60 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
   };
 
   const displayedPlayers = useMemo(() => {
-    let list = sortedPlayers;
-    if (filterNoSelf) {
-      list = list.filter(p => p.noSelf === true);
-    }
-    if (filterDc) {
-      list = list.filter(p => p.hasDc === true);
-    }
-    if (filterMic) {
-      list = list.filter(p => p.canMic === true);
-    }
+    const list = [...sortedPlayers];
     
-    if (powerSort !== 'none') {
-      list = [...list].sort((a, b) => {
-        const pa = parsePower(a.power);
-        const pb = parsePower(b.power);
-        return powerSort === 'desc' ? pb - pa : pa - pb;
-      });
-    }
-    return list;
-  }, [sortedPlayers, filterNoSelf, filterDc, filterMic, powerSort]);
+    const isMatching = (p: Player) => {
+      const matchedMember = members.find(m => m.gameName.trim().toLowerCase() === p.gameId.trim().toLowerCase());
+      const displayNoSelf = matchedMember ? (matchedMember.noSelf || false) : (p.noSelf || false);
+      const displayHasDc = matchedMember ? (matchedMember.hasDc || false) : (p.hasDc || false);
+      const displayCanMic = matchedMember ? (matchedMember.canMic || false) : (p.canMic || false);
+
+      const matchesMa = maFilter.length > 0 && p.martialArts.some(ma => maFilter.includes(ma));
+      const matchesNoSelf = filterNoSelf && displayNoSelf === true;
+      const matchesDc = filterDc && displayHasDc === true;
+      const matchesMic = filterMic && displayCanMic === true;
+      
+      const hasActiveFilter = maFilter.length > 0 || filterNoSelf || filterDc || filterMic;
+      if (!hasActiveFilter) return false;
+      
+      return matchesMa || matchesNoSelf || matchesDc || matchesMic;
+    };
+    
+    return list.sort((a, b) => {
+      const aMatch = isMatching(a);
+      const bMatch = isMatching(b);
+      
+      if (aMatch && !bMatch) return -1;
+      if (!aMatch && bMatch) return 1;
+      return 0; // retain sortedPlayers order
+    });
+  }, [sortedPlayers, maFilter, filterNoSelf, filterDc, filterMic, members]);
 
   const displayedFilteredPlayers = useMemo(() => {
     let list = filteredPlayers;
     if (maFilter.length === 0 && (filterNoSelf || filterDc || filterMic)) {
-      list = players;
+      list = playersWithComboArts;
     }
     if (filterNoSelf) {
-      list = list.filter(p => p.noSelf === true);
+      list = list.filter(p => {
+        const matchedMember = members.find(m => m.gameName.trim().toLowerCase() === p.gameId.trim().toLowerCase());
+        return matchedMember ? matchedMember.noSelf === true : p.noSelf === true;
+      });
     }
     if (filterDc) {
-      list = list.filter(p => p.hasDc === true);
+      list = list.filter(p => {
+        const matchedMember = members.find(m => m.gameName.trim().toLowerCase() === p.gameId.trim().toLowerCase());
+        return matchedMember ? matchedMember.hasDc === true : p.hasDc === true;
+      });
     }
     if (filterMic) {
-      list = list.filter(p => p.canMic === true);
+      list = list.filter(p => {
+        const matchedMember = members.find(m => m.gameName.trim().toLowerCase() === p.gameId.trim().toLowerCase());
+        return matchedMember ? matchedMember.canMic === true : p.canMic === true;
+      });
     }
     return list;
-  }, [filteredPlayers, players, maFilter, filterNoSelf, filterDc, filterMic]);
+  }, [filteredPlayers, playersWithComboArts, maFilter, filterNoSelf, filterDc, filterMic, members]);
 
   const handleExportExcel = useCallback(() => {
     // 1. Summary sheet data
@@ -866,8 +1070,8 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
   };
 
   const getMaCount = useCallback((maName: string) => {
-    return players.filter(p => p.martialArts.includes(maName)).length;
-  }, [players]);
+    return playersWithComboArts.filter(p => p.martialArts.includes(maName)).length;
+  }, [playersWithComboArts]);
 
   const handleFilterToggle = useCallback((maName: string) => {
     const currentState = maStates[maName] || 'none';
@@ -902,6 +1106,22 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
     const currentState = statusStates[statusKey] || 'none';
     const newStates = { ...statusStates };
 
+    const getMatchingIds = () => {
+      return playersWithComboArts
+        .filter(p => {
+          const matchedMember = members.find(m => m.gameName.trim().toLowerCase() === p.gameId.trim().toLowerCase());
+          const displayNoSelf = matchedMember ? (matchedMember.noSelf || false) : (p.noSelf || false);
+          const displayHasDc = matchedMember ? (matchedMember.hasDc || false) : (p.hasDc || false);
+          const displayCanMic = matchedMember ? (matchedMember.canMic || false) : (p.canMic || false);
+
+          if (statusKey === 'noSelf') return displayNoSelf === true;
+          if (statusKey === 'hasDc') return displayHasDc === true;
+          if (statusKey === 'canMic') return displayCanMic === true;
+          return false;
+        })
+        .map(p => p.id);
+    };
+
     if (currentState === 'none') {
       // 1st click: Mark as filter
       newStates[statusKey] = 'mark';
@@ -914,15 +1134,7 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
       newStates[statusKey] = 'select';
       setStatusStates(newStates);
       
-      const matchingIds = players
-        .filter(p => {
-          if (statusKey === 'noSelf') return p.noSelf === true;
-          if (statusKey === 'hasDc') return p.hasDc === true;
-          if (statusKey === 'canMic') return p.canMic === true;
-          return false;
-        })
-        .map(p => p.id);
-        
+      const matchingIds = getMatchingIds();
       const newSelected = new Set(selectedPlayerIds);
       matchingIds.forEach(id => newSelected.add(id));
       setSelectedPlayerIds(newSelected);
@@ -935,20 +1147,12 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
       if (statusKey === 'hasDc') setFilterDc(false);
       if (statusKey === 'canMic') setFilterMic(false);
       
-      const matchingIds = players
-        .filter(p => {
-          if (statusKey === 'noSelf') return p.noSelf === true;
-          if (statusKey === 'hasDc') return p.hasDc === true;
-          if (statusKey === 'canMic') return p.canMic === true;
-          return false;
-        })
-        .map(p => p.id);
-        
+      const matchingIds = getMatchingIds();
       const newSelected = new Set(selectedPlayerIds);
       matchingIds.forEach(id => newSelected.delete(id));
       setSelectedPlayerIds(newSelected);
     }
-  }, [statusStates, players, selectedPlayerIds]);
+  }, [statusStates, playersWithComboArts, selectedPlayerIds, members]);
 
   const handleClearFilter = useCallback(() => {
     clearFilter();
@@ -990,21 +1194,85 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
 
   const startEdit = useCallback((player: Player) => {
     setEditingId(player.id);
-    setEditBuffer({ ...player });
-  }, []);
+    const matchedMember = members.find(m => m.gameName.trim().toLowerCase() === player.gameId.trim().toLowerCase());
+    if (matchedMember) {
+      setEditBuffer({
+        ...player,
+        noSelf: matchedMember.noSelf || false,
+        hasDc: matchedMember.hasDc || false,
+        canMic: matchedMember.canMic || false,
+        martialArts: player.martialArts.length > 0 ? player.martialArts : (matchedMember.combos?.[0]?.arts || []),
+        power: player.power || String(matchedMember.combos?.[0]?.power || '')
+      });
+    } else {
+      setEditBuffer({ ...player });
+    }
+  }, [members]);
 
   const cancelEdit = useCallback(() => {
     setEditingId(null);
     setEditBuffer(null);
   }, []);
 
-  const saveEdit = useCallback(() => {
+  const saveEdit = useCallback(async () => {
     if (editBuffer) {
       onEditPlayer(editBuffer);
+
+      const matchedMember = members.find(m => m.gameName.trim().toLowerCase() === editBuffer.gameId.trim().toLowerCase());
+      if (matchedMember && onUpdateMember) {
+        const oldPlayer = players.find(p => p.id === editBuffer.id);
+        const oldArts = oldPlayer?.martialArts || [];
+        
+        let updatedCombos = matchedMember.combos ? matchedMember.combos.map(c => ({...c})) : [];
+        const newPowerVal = parseFloat(editBuffer.power || '0') || 0;
+
+        const oldMatchingComboIdx = updatedCombos.findIndex(combo => {
+          const comboArts = combo.arts || [];
+          if (comboArts.length !== oldArts.length) return false;
+          return comboArts.every(art => oldArts.includes(art));
+        });
+
+        if (oldMatchingComboIdx !== -1) {
+          updatedCombos[oldMatchingComboIdx] = {
+            ...updatedCombos[oldMatchingComboIdx],
+            arts: editBuffer.martialArts as any,
+            power: newPowerVal
+          };
+        } else if (updatedCombos.length > 0) {
+          updatedCombos[0] = {
+            ...updatedCombos[0],
+            arts: editBuffer.martialArts as any,
+            power: newPowerVal
+          };
+        } else {
+          updatedCombos.push({
+            name: '預設搭配',
+            arts: editBuffer.martialArts as any,
+            power: newPowerVal
+          });
+        }
+
+        const updatedMember: Member = {
+          ...matchedMember,
+          noSelf: editBuffer.noSelf,
+          hasDc: editBuffer.hasDc,
+          canMic: editBuffer.canMic,
+          combos: updatedCombos
+        };
+
+        try {
+          await onUpdateMember(updatedMember);
+          showToast(`已同步更新 [${editBuffer.gameId}] 於百業成員的資料與搭配`, 'success');
+        } catch (err) {
+          console.error("Failed to sync member:", err);
+          showToast('百業成員同步失敗', 'error');
+        }
+      }
+
       setEditingId(null);
       setEditBuffer(null);
     }
-  }, [editBuffer, onEditPlayer]);
+  }, [editBuffer, onEditPlayer, members, players, onUpdateMember, showToast]);
 
   const toggleEditMA = useCallback((name: string) => {
     setEditBuffer(prev => {
@@ -1042,7 +1310,43 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
           
       {/* Management Toolbar */}
       <section className="bg-[#0f172a] p-3 rounded-2xl border border-slate-800">
-        <div className="flex flex-col gap-3">
+        {/* Collapsible Header */}
+        <div 
+          onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
+          className="flex items-center justify-between cursor-pointer select-none pb-0.5 hover:text-slate-350 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <i className="fa-solid fa-wand-magic-sparkles text-blue-500 text-sm animate-pulse"></i>
+            <h3 className="text-xs font-black text-slate-200 tracking-wider">
+              篩選、標記與配置面板
+            </h3>
+            {!isToolbarExpanded && (
+              <div className="flex flex-wrap items-center gap-1.5 ml-2">
+                {maFilter.length > 0 ? (
+                  <span className="text-[9px] font-black text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                    已選 {maFilter.length} 武學
+                  </span>
+                ) : (
+                  <span className="text-[9.5px] font-bold text-slate-500 bg-[#020617] px-1.5 py-0.5 rounded border border-slate-800/60">
+                    無武學篩選
+                  </span>
+                )}
+                {(statusStates.noSelf !== 'none' || statusStates.hasDc !== 'none' || statusStates.canMic !== 'none') && (
+                  <span className="text-[9px] font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    已啟用狀態篩選
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-350 transition-colors">
+            <span>{isToolbarExpanded ? '點擊收合' : '點擊展開篩選'}</span>
+            <i className={`fa-solid ${isToolbarExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-slate-400 transition-transform duration-200`}></i>
+          </div>
+        </div>
+
+        {isToolbarExpanded && (
+          <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-slate-800/40 animate-fade-in">
           
           {/* Martial Arts Filter Section */}
           <div className="flex flex-col gap-2 w-full">
@@ -1217,8 +1521,6 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
             </div>
           </div>
 
-        </div>
-
         {/* Smart Assignment configs Drawer */}
         {showSmartAssign && (
           <SmartAssignPanel 
@@ -1232,13 +1534,15 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
           />
         )}
 
-      <div className="flex justify-end items-center pt-4 border-t border-slate-800/50">
-          {!isRestricted && (
-            <button onClick={onClearPlayers} className="text-[10px] font-black text-red-500/70 hover:text-red-500 uppercase tracking-widest transition-colors flex items-center gap-2 cursor-pointer">
-                <i className="fa-solid fa-trash-can"></i> 清除整張名單
-            </button>
-          )}
-      </div>
+        <div className="flex justify-end items-center pt-4 border-t border-slate-800/50">
+            {!isRestricted && (
+              <button onClick={onClearPlayers} className="text-[10px] font-black text-red-500/70 hover:text-red-500 uppercase tracking-widest transition-colors flex items-center gap-2 cursor-pointer">
+                  <i className="fa-solid fa-trash-can"></i> 清除整張名單
+              </button>
+            )}
+        </div>
+        </div>
+        )}
 
         {/* Draggable Summary Popup */}
         {showSummary && maFilter.length > 0 && (
@@ -1285,10 +1589,10 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {p.martialArts.map(ma => {
+                      {p.martialArts.map((ma, i) => {
                         const maObj = martialArts.find(m => m.name === ma);
                         return (
-                          <span key={ma} className="inline-flex items-center gap-0.5 px-1 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[8px] font-bold text-slate-500">
+                          <span key={`${ma}-${i}`} className="inline-flex items-center gap-0.5 px-1 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[8px] font-bold text-slate-500">
                             <span className="w-1 h-1 rounded-full" style={{ backgroundColor: maObj?.color }}></span>
                             {ma}
                           </span>
@@ -1311,30 +1615,18 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
                 <th className="p-3 w-12 text-center">
                   <input
                     type="checkbox"
-                    checked={players.length > 0 && selectedPlayerIds.size === players.length}
+                    checked={playersWithComboArts.length > 0 && selectedPlayerIds.size === playersWithComboArts.length}
                     onChange={(e) => {
-                      if (e.target.checked) setSelectedPlayerIds(new Set(players.map(p => p.id)));
+                      if (e.target.checked) setSelectedPlayerIds(new Set(playersWithComboArts.map(p => p.id)));
                       else setSelectedPlayerIds(new Set());
                     }}
                     className="rounded border-slate-700 bg-slate-900"
                   />
                 </th>
-                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">遊戲名稱</th>
-                <th 
-                  onClick={() => {
-                    setPowerSort(prev => prev === 'none' ? 'desc' : prev === 'desc' ? 'asc' : 'none');
-                  }}
-                  className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center cursor-pointer hover:text-blue-400 transition-colors selection:bg-transparent"
-                >
-                  <span className="flex items-center justify-center gap-1.5 mx-auto w-max">
-                    戰力指數
-                    {powerSort === 'none' && <i className="fa-solid fa-sort opacity-50 text-[9px]"></i>}
-                    {powerSort === 'desc' && <i className="fa-solid fa-sort-down text-blue-500 text-[10px]"></i>}
-                    {powerSort === 'asc' && <i className="fa-solid fa-sort-up text-blue-500 text-[10px]"></i>}
-                  </span>
+                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left w-1/4">成員遊戲名稱</th>
+                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">
+                  登錄武學搭配與戰力
                 </th>
-                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">狀態限制</th>
-                <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left hidden md:table-cell">武學</th>
                 <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">報名場次</th>
                 <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">分配參加場次</th>
                 <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left hidden lg:table-cell">備註</th>
@@ -1349,19 +1641,29 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
                   </td>
                 </tr>
               ) : (
-                displayedPlayers.map((player) => {
-                  const isEditing = editingId === player.id;
-                  const isNew = player.id === lastAddedPlayerId;
-                  const isFiltered = maFilter.length > 0 && player.martialArts.some(ma => maFilter.includes(ma));
+                displayedPlayers.map((p) => {
+                  const originalPlayer = players.find(orig => orig.id === p.id) || p;
+                  const isEditing = editingId === p.id;
+                  const isNew = p.id === lastAddedPlayerId;
+                  
+                  const matchedMember = members.find(m => m.gameName.trim().toLowerCase() === p.gameId.trim().toLowerCase());
+                  const displayNoSelf = matchedMember ? matchedMember.noSelf : p.noSelf;
+                  const displayHasDc = matchedMember ? matchedMember.hasDc : p.hasDc;
+                  const displayCanMic = matchedMember ? matchedMember.canMic : p.canMic;
+
+                  const isFiltered = (maFilter.length > 0 && p.martialArts.some(ma => maFilter.includes(ma))) ||
+                                     (filterNoSelf && displayNoSelf === true) ||
+                                     (filterDc && displayHasDc === true) ||
+                                     (filterMic && displayCanMic === true);
                   
                   return (
                     <PlayerRow 
-                      key={player.id}
-                      player={isEditing ? (editBuffer || player) : player}
+                      key={p.id}
+                      player={isEditing ? (editBuffer || p) : p}
                       isEditing={isEditing}
                       isNew={isNew}
                       isFiltered={isFiltered}
-                      selected={selectedPlayerIds.has(player.id)}
+                      selected={selectedPlayerIds.has(p.id)}
                       onToggleSelect={toggleSelect}
                       onStartEdit={startEdit}
                       onEdit={isEditing ? setEditBuffer : onEditPlayer}
@@ -1370,6 +1672,8 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
                       teams={teams}
                       martialArts={martialArts}
                       isRestricted={isRestricted}
+                      members={members}
+                      heartMethods={heartMethods}
                     />
                   );
                 })

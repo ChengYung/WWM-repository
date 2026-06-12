@@ -33,6 +33,14 @@ export interface TeamConfig {
   details: string;
 }
 
+export interface HeartMethod {
+  name: string;
+  description: string;
+  color?: string;
+  rarity?: 'gold' | 'purple' | 'blue';
+  type?: string;
+}
+
 export interface Technique {
   genre: string;
   content: string;
@@ -41,6 +49,8 @@ export interface Technique {
 export interface Project {
   id: string;
   name: string;
+    weaponSets?: string[];
+    armorSets?: string[];
   ownerId: string;
   ownerEmail?: string;
   createdAt: number;
@@ -54,6 +64,7 @@ export interface Project {
   isRestricted?: boolean; // Administrative lock
   restrictionMessage?: string; // Reason for restriction
   ownerMessage?: string; // Message from owner to admin
+  heartMethods?: HeartMethod[];
 }
 
 export interface UserProfile {
@@ -69,3 +80,24 @@ export interface AppConfig {
   teams: string[];
   availabilityOptions: Availability[];
 }
+
+export interface MartialCombo {
+  name: string;
+  arts: string[];
+  power: number;
+  heartMethods?: string[];
+  weaponSet?: string;
+  armorSet?: string;
+}
+
+export interface Member {
+  id: string;
+  projectId: string;
+  gameName: string;
+  combos: MartialCombo[];
+  createdAt: number;
+  noSelf?: boolean;
+  hasDc?: boolean;
+  canMic?: boolean;
+}
+

@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect, useRef, useCallback, memo } from 'react';
-import { Player, TeamConfig, MartialArts } from '../types';
+import { Player, TeamConfig, MartialArts, Member } from '../types';
 import { useMartialArtsFilter } from '../hooks/useMartialArtsFilter';
 import { SESSION_LABELS } from '../constants';
 import { useToast } from './Toast';
@@ -27,13 +27,34 @@ interface TeamCardProps {
   filterNoSelf?: boolean;
   filterDc?: boolean;
   filterMic?: boolean;
+  projectMembers?: Member[];
 }
 
 const TeamCard = memo(({
-  teamName, config, teamData, editingMissionTeam, setEditingMissionTeam, onUpdateDescription, onMovePlayer, selectedPlayerIds, toggleSelect, onDragStart, onDrop, maFilter, sessionFilter, getMaGroupPriority, isRestricted, filterNoSelf, filterDc, filterMic
+  teamName, config, teamData, editingMissionTeam, setEditingMissionTeam, onUpdateDescription, onMovePlayer, selectedPlayerIds, toggleSelect, onDragStart, onDrop, maFilter, sessionFilter, getMaGroupPriority, isRestricted, filterNoSelf, filterDc, filterMic, projectMembers = []
 }: TeamCardProps) => {
   const activePlayers = Object.values(teamData.active).flat();
   const inactivePlayers = Object.values(teamData.inactive).flat();
+
+  const getPlayerArtsUnion = (gameId: string, playerMartialArts: string[]) => {
+    const matchedMember = (projectMembers || []).find(m => m.gameName.trim() === gameId.trim());
+    const unionSet = new Set<string>();
+    if (matchedMember?.combos) {
+      matchedMember.combos.forEach(combo => {
+        if (combo.arts) {
+          combo.arts.forEach(art => {
+            if (art) unionSet.add(art);
+          });
+        }
+      });
+    }
+    if (unionSet.size === 0 && playerMartialArts) {
+      playerMartialArts.forEach(art => {
+        if (art) unionSet.add(art);
+      });
+    }
+    return Array.from(unionSet);
+  };
 
   return (
     <div
@@ -55,81 +76,101 @@ const TeamCard = memo(({
           <span className="text-[10px] font-black text-blue-500">
             {activePlayers.length + inactivePlayers.length}人
             {sessionFilter && (
-              <span className="ml-1 text-slate-500">(實到: {activePlayers.length})</span>
+               <span className="ml-1 text-slate-500">(實到: {activePlayers.length})</span>
             )}
           </span>
-        </div>
+         </div>
         
-        <div className="space-y-3">
-          {(Object.entries(teamData.active) as [string, Player[]][])
-            .sort(([aKey], [bKey]) => getMaGroupPriority(aKey) - getMaGroupPriority(bKey))
-            .map(([maKey, members]) => (
-            <div key={maKey} className="space-y-1">
-              <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-slate-800 pl-2">
-                {maKey}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {members.map(p => {
-                  const isFiltered = (maFilter.length > 0 && p.martialArts.some(ma => maFilter.includes(ma))) ||
-                                     (filterNoSelf && p.noSelf) ||
-                                     (filterDc && p.hasDc) ||
-                                     (filterMic && p.canMic);
-                  return (
-                    <div
-                      key={p.id}
-                      id={`team-player-${p.id}`}
-                      draggable={!isRestricted}
-                      onDragStart={(e) => !isRestricted && onDragStart(e, p.id)}
-                      onClick={(e) => !isRestricted && toggleSelect(p.id, e)}
-                      className={`px-2 py-0.5 border rounded-lg text-[10px] font-bold transition-all shadow-sm flex items-center gap-1 ${
-                        isRestricted 
-                        ? 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'
-                        : selectedPlayerIds.has(p.id)
-                        ? 'bg-blue-600 border-blue-400 text-white ring-2 ring-blue-500/50 scale-[1.05] z-10 cursor-move'
-                        : isFiltered 
-                        ? 'bg-green-600/20 border-green-500 text-green-400 cursor-move' 
-                        : 'bg-[#020617] border-slate-800 text-slate-300 hover:bg-slate-800 hover:border-blue-500/50 cursor-move'
-                      }`}
-                    >
-                      {(isFiltered || selectedPlayerIds.has(p.id)) && <i className={`fa-solid ${selectedPlayerIds.has(p.id) ? 'fa-check-circle' : 'fa-star'} text-[8px]`}></i>}
-                      {p.gameId}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+         <div className="space-y-3">
+           {(Object.entries(teamData.active) as [string, Player[]][])
+             .sort(([aKey], [bKey]) => getMaGroupPriority(aKey) - getMaGroupPriority(bKey))
+             .map(([maKey, members]) => (
+             <div key={maKey} className="space-y-1">
+               <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-slate-800 pl-2">
+                 {maKey}
+               </div>
+               <div className="flex flex-row flex-wrap gap-1.5 w-full">
+                 {members.map(p => {
+                   const isFiltered = (maFilter.length > 0 && p.martialArts.some(ma => maFilter.includes(ma))) ||
+                                      (filterNoSelf && p.noSelf) ||
+                                      (filterDc && p.hasDc) ||
+                                      (filterMic && p.canMic);
+                   return (
+                     <div
+                       key={p.id}
+                       id={`team-player-${p.id}`}
+                       draggable={!isRestricted}
+                       onDragStart={(e) => !isRestricted && onDragStart(e, p.id)}
+                       onClick={(e) => !isRestricted && toggleSelect(p.id, e)}
+                       className={`px-2.5 py-1.5 border rounded-lg text-[10px] font-bold transition-all shadow-sm flex flex-row items-center gap-1.5 shrink-0 ${
+                         isRestricted 
+                         ? 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'
+                         : selectedPlayerIds.has(p.id)
+                         ? 'bg-blue-600 border-blue-400 text-white ring-2 ring-blue-500/50 cursor-move'
+                         : isFiltered 
+                         ? 'bg-green-600/20 border-green-500 text-green-400 cursor-move' 
+                         : 'bg-[#020617] border-slate-800 text-slate-300 hover:bg-slate-800 hover:border-blue-500/50 cursor-move'
+                       }`}
+                     >
+                       <div className="flex items-center gap-1 shrink-0">
+                         {(isFiltered || selectedPlayerIds.has(p.id)) && <i className={`fa-solid ${selectedPlayerIds.has(p.id) ? 'fa-check-circle' : 'fa-star'} text-[8px]`}></i>}
+                         <span className="truncate max-w-[150px]">{p.gameId}</span>
+                       </div>
+                       {(() => {
+                         const arts = []; // Hidden under name
+                         if (arts.length === 0) return null;
+                         return (
+                           <div className="text-[8px] font-semibold text-slate-400 dark:text-slate-500 leading-none break-all">
+                             {arts.join(' + ')}
+                           </div>
+                         );
+                       })()}
+                     </div>
+                   );
+                 })}
+               </div>
+             </div>
+           ))}
 
-              {Object.entries(teamData.inactive).length > 0 && (
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-800/50 space-y-3 opacity-50">
-                  <div className="text-[9px] font-black text-red-600 dark:text-red-500/50 uppercase tracking-widest text-center">
-                    無法參加人員
-                  </div>
-                  {(Object.entries(teamData.inactive) as [string, Player[]][])
-                    .sort(([aKey], [bKey]) => getMaGroupPriority(aKey) - getMaGroupPriority(bKey))
-                    .map(([maKey, members]) => (
-                    <div key={maKey} className="space-y-1">
-                  <div className="text-[9px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-widest border-l-2 border-slate-200 dark:border-slate-900 pl-2">
-                    {maKey}
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {members.map(p => (
-                      <div
-                        key={p.id}
-                        id={`team-player-${p.id}`}
-                        draggable={!isRestricted}
-                        onDragStart={(e) => !isRestricted && onDragStart(e, p.id)}
-                        onClick={(e) => !isRestricted && toggleSelect(p.id, e)}
-                        className={`px-2 py-0.5 border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] font-bold bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-600 grayscale ${isRestricted ? 'cursor-not-allowed' : 'cursor-move'}`}
-                      >
-                        {p.gameId}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+               {Object.entries(teamData.inactive).length > 0 && (
+                 <div className="pt-3 border-t border-slate-200 dark:border-slate-800/50 space-y-3 opacity-50">
+                   <div className="text-[9px] font-black text-red-600 dark:text-red-500/50 uppercase tracking-widest text-center">
+                     無法參加人員
+                   </div>
+                   {(Object.entries(teamData.inactive) as [string, Player[]][])
+                     .sort(([aKey], [bKey]) => getMaGroupPriority(aKey) - getMaGroupPriority(bKey))
+                     .map(([maKey, members]) => (
+                     <div key={maKey} className="space-y-1">
+                   <div className="text-[9px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-widest border-l-2 border-slate-200 dark:border-slate-900 pl-2">
+                     {maKey}
+                   </div>
+                   <div className="flex flex-row flex-wrap gap-1.5 w-full">
+                     {members.map(p => (
+                       <div
+                         key={p.id}
+                         id={`team-player-${p.id}`}
+                         draggable={!isRestricted}
+                         onDragStart={(e) => !isRestricted && onDragStart(e, p.id)}
+                         onClick={(e) => !isRestricted && toggleSelect(p.id, e)}
+                         className={`px-2.5 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] font-bold bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-600 grayscale flex flex-row items-center gap-1.5 shrink-0 ${isRestricted ? 'cursor-not-allowed' : 'cursor-move'}`}
+                       >
+                         <span className="truncate max-w-[150px]">{p.gameId}</span>
+                         {(() => {
+                           const arts = []; // Hidden under name
+                           if (arts.length === 0) return null;
+                           return (
+                             <div className="text-[8px] font-semibold text-slate-500 dark:text-slate-500 leading-none break-all">
+                               {arts.join(' + ')}
+                             </div>
+                           );
+                         })()}
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               ))}
+             </div>
+           )}
         </div>
       </div>
 
@@ -177,6 +218,7 @@ interface TeamDashboardProps {
   teamDescriptions: Record<string, TeamConfig>;
   martialArts: MartialArts[];
   isRestricted?: boolean;
+  members?: Member[];
 }
 
 export const TeamDashboard: React.FC<TeamDashboardProps> = ({ 
@@ -188,7 +230,8 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   teams,
   teamDescriptions,
   martialArts,
-  isRestricted
+  isRestricted,
+  members = []
 }) => {
   const [editingMissionTeam, setEditingMissionTeam] = useState<string | null>(null);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
@@ -206,6 +249,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   });
 
   const [showSmartAssign, setShowSmartAssign] = useState(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -334,14 +378,31 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
 
       if (!groups[currentTeam]) return;
 
-      const maKey = [...p.martialArts].sort().join(' + ') || '未設定武學';
+      const matchedMember = (members || []).find(m => m.gameName.trim() === p.gameId.trim());
+      const unionSet = new Set<string>();
+      if (matchedMember?.combos) {
+        matchedMember.combos.forEach(combo => {
+          if (combo.arts) {
+            combo.arts.forEach(art => {
+              if (art) unionSet.add(art);
+            });
+          }
+        });
+      }
+      if (unionSet.size === 0 && p.martialArts) {
+        p.martialArts.forEach(art => {
+          if (art) unionSet.add(art);
+        });
+      }
+      const maKey = Array.from(unionSet).sort().join(' + ') || '未設定武學';
+
       const targetGroup = isAvailable ? groups[currentTeam].active : groups[currentTeam].inactive;
       if (!targetGroup[maKey]) targetGroup[maKey] = [];
       targetGroup[maKey].push(p);
     });
 
     return groups;
-  }, [players, teams, sessionFilter]);
+  }, [players, teams, sessionFilter, members]);
 
   const scrollToPlayer = (id: string) => {
     const element = document.getElementById(`team-player-${id}`);
@@ -594,6 +655,44 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
           </div>
         </div>
 
+        {/* Toggleable Tools and Filters Header */}
+        <div 
+          onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
+          className="flex items-center justify-between cursor-pointer select-none pb-0.5 pt-2 border-t border-slate-800/60 hover:text-slate-350 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <i className="fa-solid fa-wand-magic-sparkles text-blue-500 text-sm animate-pulse"></i>
+            <h3 className="text-xs font-black text-slate-200 tracking-wider">
+              篩選、標記與配置面板
+            </h3>
+            {!isToolbarExpanded && (
+              <div className="flex flex-wrap items-center gap-1.5 ml-2">
+                {maFilter.length > 0 ? (
+                  <span className="text-[9px] font-black text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                    已選 {maFilter.length} 武學
+                  </span>
+                ) : (
+                  <span className="text-[9.5px] font-bold text-slate-500 bg-[#020617] px-1.5 py-0.5 rounded border border-slate-800/60">
+                    無武學篩選
+                  </span>
+                )}
+                {(statusStates.noSelf !== 'none' || statusStates.hasDc !== 'none' || statusStates.canMic !== 'none') && (
+                  <span className="text-[9px] font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    已啟用狀態篩選
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-355 transition-colors">
+            <span>{isToolbarExpanded ? '點擊收合' : '點擊展開篩選'}</span>
+            <i className={`fa-solid ${isToolbarExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-slate-400 transition-transform duration-200`}></i>
+          </div>
+        </div>
+
+        {isToolbarExpanded && (
+          <div className="flex flex-col gap-3 pt-1 animate-fade-in">
+
         {/* Martial Arts Filter Section */}
         <div className="flex flex-col gap-2 w-full">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -797,6 +896,8 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
           />
         )}
         </div>
+        )}
+        </div>
 
           {/* Draggable Summary Popup */}
           {showSummary && maFilter.length > 0 && (
@@ -843,10 +944,10 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {p.martialArts.map(ma => {
+                        {p.martialArts.map((ma, i) => {
                           const maObj = martialArts.find(m => m.name === ma);
                           return (
-                            <span key={ma} className="inline-flex items-center gap-0.5 px-1 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[8px] font-bold text-slate-500">
+                            <span key={`${ma}-${i}`} className="inline-flex items-center gap-0.5 px-1 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[8px] font-bold text-slate-500">
                               <span className="w-1 h-1 rounded-full" style={{ backgroundColor: maObj?.color }}></span>
                               {ma}
                             </span>
@@ -885,6 +986,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
               filterNoSelf={filterNoSelf}
               filterDc={filterDc}
               filterMic={filterMic}
+              projectMembers={members}
             />
           );
         })}
