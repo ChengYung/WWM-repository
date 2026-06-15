@@ -43,6 +43,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastAddedPlayerId, setLastAddedPlayerId] = useState<string | null>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingNameVal, setEditingNameVal] = useState('');
 
   // Derived state or fallback to defaults if project not loaded
   const martialArts = project?.martialArts || INITIAL_MARTIAL_ARTS;
@@ -76,6 +78,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
         return;
       }
       setProject(proj);
+      setEditingNameVal(proj.name || '');
     });
 
     // 2. Subscribe to Players
@@ -426,7 +429,67 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
                 <i className="fa-solid fa-shield-halved text-xl"></i>
               </div>
               <div>
-                <h1 className="text-base font-black tracking-wider text-slate-100 uppercase leading-tight">{project?.name || '報名系統'}</h1>
+                {isEditingName ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={editingNameVal}
+                      onChange={(e) => setEditingNameVal(e.target.value)}
+                      onBlur={async () => {
+                        setIsEditingName(false);
+                        const trimmed = editingNameVal.trim();
+                        if (trimmed && trimmed !== project?.name) {
+                          await handleUpdateProjectConfig({ name: trimmed });
+                          showToast('專案名稱已成功更新！', 'success');
+                        } else {
+                          setEditingNameVal(project?.name || '');
+                        }
+                      }}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          setIsEditingName(false);
+                          const trimmed = editingNameVal.trim();
+                          if (trimmed && trimmed !== project?.name) {
+                            await handleUpdateProjectConfig({ name: trimmed });
+                            showToast('專案名稱已成功更新！', 'success');
+                          } else {
+                            setEditingNameVal(project?.name || '');
+                          }
+                        } else if (e.key === 'Escape') {
+                          setIsEditingName(false);
+                          setEditingNameVal(project?.name || '');
+                        }
+                      }}
+                      autoFocus
+                      maxLength={100}
+                      className="bg-[#020617] text-white text-xs border border-blue-500/50 rounded-lg px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none leading-none h-7 max-w-[150px] sm:max-w-[220px]"
+                    />
+                    <button 
+                      onClick={() => setIsEditingName(false)}
+                      className="text-slate-500 hover:text-slate-300 text-xs p-1"
+                    >
+                      <i className="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                ) : (
+                  <h1 
+                    onClick={() => {
+                      if (isOwner || isAdmin) {
+                        setIsEditingName(true);
+                        setEditingNameVal(project?.name || '');
+                      }
+                    }}
+                    className={`text-base font-black tracking-wider text-slate-100 uppercase leading-tight flex items-center gap-1.5 ${
+                      (isOwner || isAdmin) ? 'hover:text-blue-400 cursor-pointer group/title' : ''
+                    }`}
+                    title={(isOwner || isAdmin) ? '點擊即可修改專案名稱' : undefined}
+                  >
+                    <span>{project?.name || '報名系統'}</span>
+                    {(isOwner || isAdmin) && (
+                      <i className="fa-regular fa-pen-to-square text-[10px] text-slate-500 group-hover/title:text-blue-400 group-hover/title:-translate-y-0.5 transition-all opacity-0 group-hover/title:opacity-100"></i>
+                    )}
+                  </h1>
+                )}
                 <div className="flex gap-1.5 items-center mt-0.5">
                   <span className="text-[8px] font-mono font-bold bg-slate-900 border border-slate-700 text-slate-400 px-1 py-0.2 rounded uppercase tracking-wider">
                     ID: {projectId}

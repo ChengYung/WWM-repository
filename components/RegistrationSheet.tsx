@@ -132,20 +132,20 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Registration Form */}
-      <section className="bg-[#0f172a] p-4 rounded-2xl shadow-2xl border border-slate-800 hover:border-slate-800/80 transition-all">
-        <div className="flex justify-between items-center mb-3">
+      <section className="bg-[#0f172a] p-3 rounded-xl shadow-2xl border border-slate-800 hover:border-slate-800/80 transition-all">
+        <div className="flex justify-between items-center mb-2">
           <h2 className="text-base font-bold flex items-center gap-2 text-slate-100">
             <i className="fa-solid fa-user-plus text-blue-500 text-sm"></i>
             報名登記
           </h2>
         </div>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           {/* Top row: Game Name and Status settings side-by-side */}
-          <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-            <div className="space-y-1 relative">
-              <label className="text-xs font-bold text-slate-400 block mb-1.5">遊戲名稱 *</label>
+          <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+            <div className="space-y-0.5 relative">
+              <label className="text-xs font-bold text-slate-400 block mb-1">遊戲名稱 *</label>
               <input
                 type="text"
                 value={gameId}
@@ -156,13 +156,13 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                 }}
                 disabled={isRestricted}
                 placeholder={isRestricted ? "此專案已鎖定" : "請輸入遊戲名稱"}
-                className={`w-full bg-[#020617] text-slate-200 text-xs font-bold rounded-xl border border-slate-800 focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all h-[46px] px-4 py-2.5 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full bg-[#020617] text-slate-200 text-xs font-bold rounded-lg border border-slate-800 focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all h-[38px] px-3 py-2 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
               />
 
               {/* Autocomplete Dropdown list */}
               {isFocused && matchedMembers.length > 0 && (
                 <div className="absolute left-0 right-0 top-full mt-1 bg-[#0f172a] border border-slate-800 rounded-xl overflow-hidden z-50 shadow-2xl divide-y divide-slate-800">
-                  <div className="px-3 py-1.5 bg-[#020617]/55 text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center justify-between">
+                  <div className="px-3 py-1 bg-[#020617]/55 text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center justify-between">
                     <span>可選百業成員 (模糊匹配)</span>
                     <span className="text-[9px] text-blue-400">點選自動帶入</span>
                   </div>
@@ -174,7 +174,7 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                         handleSelectMatchedMember(member);
                         setIsFocused(false);
                       }}
-                      className="w-full text-left px-4 py-2 hover:bg-slate-800/40 flex items-center justify-between transition-all cursor-pointer group"
+                      className="w-full text-left px-3 py-1.5 hover:bg-slate-800/40 flex items-center justify-between transition-all cursor-pointer group"
                     >
                       <div className="flex flex-col">
                         <span className="text-xs font-black text-slate-200 group-hover:text-white flex items-center gap-1.5">
@@ -196,10 +196,10 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
               )}
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-400 block mb-1.5">通訊與狀態設定</label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#020617] p-1 rounded-xl border border-slate-800 h-[46px] items-center">
-                <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0f172a] hover:bg-slate-800/30 rounded-lg cursor-pointer transition-all border border-slate-800/60 selection:bg-transparent h-9">
+            <div className="space-y-0.5">
+              <label className="text-xs font-bold text-slate-400 block mb-1">通訊與狀態設定</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-[#020617] p-0.5 rounded-lg border border-slate-800 h-[38px] items-center">
+                <label className="flex items-center gap-1 px-1.5 py-1 bg-[#0f172a] hover:bg-slate-800/30 rounded-md cursor-pointer transition-all border border-slate-800/60 selection:bg-transparent h-7">
                   <input
                     type="checkbox"
                     checked={noSelf}
@@ -213,7 +213,7 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                   </span>
                 </label>
 
-                <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0f172a] hover-[#0f172a] hover:bg-slate-800/30 rounded-lg cursor-pointer transition-all border border-slate-800/60 selection:bg-transparent h-9">
+                <label className="flex items-center gap-1 px-1.5 py-1 bg-[#0f172a] hover:bg-slate-800/30 rounded-md cursor-pointer transition-all border border-slate-800/60 selection:bg-transparent h-7 font-sans">
                   <input
                     type="checkbox"
                     checked={hasDc}
@@ -227,7 +227,7 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                   </span>
                 </label>
 
-                <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0f172a] hover:bg-slate-800/30 rounded-lg cursor-pointer transition-all border border-slate-800/60 selection:bg-transparent h-9">
+                <label className="flex items-center gap-1 px-1.5 py-1 bg-[#0f172a] hover:bg-slate-800/30 rounded-md cursor-pointer transition-all border border-slate-800/60 selection:bg-transparent h-7">
                   <input
                     type="checkbox"
                     checked={canMic}
@@ -245,14 +245,14 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
           </div>
 
           {/* New Row: Member styled Martial Arts Selection & power selector */}
-          <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#020617] p-4 rounded-2xl border border-slate-800/80 items-end">
+          <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-3 bg-[#020617] p-2.5 rounded-xl border border-slate-800/80 items-end">
             <div className="relative z-30">
-              <label className="text-xs font-bold text-slate-400 block mb-1.5">武學 *</label>
+              <label className="text-xs font-bold text-slate-400 block mb-1">武學 *</label>
               <button
                 type="button"
                 onClick={() => !isRestricted && setIsDropdownOpen(!isDropdownOpen)}
                 disabled={isRestricted}
-                className={`w-full bg-[#0f172a] border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-xs font-bold text-left outline-none transition-all flex items-center justify-between min-h-[38px] ${
+                className={`w-full bg-[#0f172a] border border-slate-800 focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs font-bold text-left outline-none transition-all flex items-center justify-between min-h-[34px] ${
                   isRestricted ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-700'
                 }`}
               >
@@ -269,7 +269,7 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                   />
                   
                   {/* Dropdown panel */}
-                  <div className="absolute left-0 right-0 mt-1.5 max-h-60 overflow-y-auto bg-[#090f1d] border border-slate-800 rounded-xl shadow-2xl p-2 z-50 space-y-1 scrollbar-thin scrollbar-thumb-slate-800">
+                  <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-[#090f1d] border border-slate-800 rounded-lg shadow-2xl p-1 z-50 space-y-0.5 scrollbar-thin scrollbar-thumb-slate-800">
                     {martialArts.map((ma, i) => {
                       const isSelected = selectedArts.includes(ma.name);
                       return (
@@ -283,20 +283,20 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                               setSelectedArts([...selectedArts, ma.name]);
                             }
                           }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-xs font-bold transition-all ${
+                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-left text-xs font-bold transition-all ${
                             isSelected 
                               ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
                               : 'text-slate-300 hover:bg-[#0f172a] border border-transparent'
                           }`}
                         >
-                          <span className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ma.color || '#94a3b8' }}></span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ma.color || '#94a3b8' }}></span>
                             {ma.name}
                           </span>
                           {isSelected ? (
                             <i className="fa-solid fa-check text-xs text-blue-400"></i>
                           ) : (
-                            <span className="w-3.5 h-3.5 rounded border border-slate-700 shrink-0"></span>
+                            <span className="w-3 h-3 rounded border border-slate-700 shrink-0"></span>
                           )}
                         </button>
                       );
@@ -306,7 +306,7 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 min-h-[46px] bg-[#0f172a]/20 border border-slate-800/40 rounded-xl px-3 py-2">
+            <div className="flex flex-wrap items-center gap-1 min-h-[34px] bg-[#0f172a]/20 border border-slate-800/40 rounded-lg px-2 py-1">
               {selectedArts.length === 0 ? (
                 <span className="text-[10px] text-slate-600 italic font-semibold">尚未選擇武學</span>
               ) : (
@@ -321,7 +321,7 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                             setSelectedArts(selectedArts.filter(item => item !== ma));
                           }
                         }}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold bg-[#020617] border-slate-800 text-slate-200 transition-all ${isRestricted ? 'cursor-not-allowed' : 'hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 cursor-pointer'}`}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold bg-[#020617] border-slate-800 text-slate-200 transition-all ${isRestricted ? 'cursor-not-allowed' : 'hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 cursor-pointer'}`}
                         title="點擊刪除"
                       >
                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: maObj?.color || '#94a3b8' }}></span>
@@ -335,7 +335,7 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1.5">戰力指數 (鵝)</label>
+              <label className="text-xs font-bold text-slate-400 block mb-1">戰力指數 (鵝)</label>
               <div className="relative">
                 <input
                   type="text"
@@ -348,16 +348,16 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                   }}
                   disabled={isRestricted}
                   placeholder={isRestricted ? "此專案已鎖定" : "例: 3.14"}
-                  className={`w-full bg-[#0f172a]/95 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-200 font-bold outline-none font-mono transition-all ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`w-full bg-[#0f172a]/95 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-200 font-bold outline-none font-mono transition-all h-[34px] ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-black font-sans">鵝</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-black font-sans">鵝</span>
               </div>
             </div>
           </div>
 
-          <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-2 bg-indigo-950/10 p-3 rounded-xl border border-indigo-500/15 shadow">
-              <label className="text-[11px] font-bold text-indigo-300 flex items-center gap-1 uppercase tracking-wide">
+          <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div className="space-y-1.5 bg-indigo-950/10 p-2 rounded-lg border border-indigo-500/15 shadow">
+              <label className="text-[10px] font-bold text-indigo-300 flex items-center gap-1 uppercase tracking-wide">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow shadow-indigo-500/50 animate-pulse"></span>
                 週六場次 (預設全選，可點擊取消)
               </label>
@@ -375,9 +375,9 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                           prev.includes(sessionKey) ? prev.filter(s => s !== sessionKey) : [...prev, sessionKey]
                         );
                       }}
-                      className={`py-1.5 rounded-lg border flex flex-col items-center justify-center transition-all duration-150 select-none ${
+                      className={`py-1 rounded-md border flex flex-col items-center justify-center transition-all duration-150 select-none ${
                         isSelected
-                        ? 'bg-indigo-600 border-indigo-500 shadow scale-[1.02]'
+                        ? 'bg-indigo-600 border-indigo-500 shadow scale-[1.01]'
                         : 'bg-[#020617] border-slate-800/80 hover:border-slate-700'
                       }`}
                     >
@@ -399,8 +399,8 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
               </div>
             </div>
 
-            <div className="space-y-2 bg-teal-950/10 p-3 rounded-xl border border-teal-500/15 shadow">
-              <label className="text-[11px] font-bold text-teal-300 flex items-center gap-1 uppercase tracking-wide">
+            <div className="space-y-1.5 bg-teal-950/10 p-2 rounded-lg border border-teal-500/15 shadow">
+              <label className="text-[10px] font-bold text-teal-300 flex items-center gap-1 uppercase tracking-wide">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shadow shadow-teal-500/50 animate-pulse"></span>
                 週日場次 (預設全選，可點擊取消)
               </label>
@@ -418,9 +418,9 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
                           prev.includes(sessionKey) ? prev.filter(s => s !== sessionKey) : [...prev, sessionKey]
                         );
                       }}
-                      className={`py-1.5 rounded-lg border flex flex-col items-center justify-center transition-all duration-150 select-none ${
+                      className={`py-1 rounded-md border flex flex-col items-center justify-center transition-all duration-150 select-none ${
                         isSelected
-                        ? 'bg-teal-600 border-teal-500 shadow scale-[1.02]'
+                        ? 'bg-teal-600 border-teal-500 shadow scale-[1.01]'
                         : 'bg-[#020617] border-slate-800/80 hover:border-slate-700'
                       }`}
                     >
@@ -443,14 +443,14 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
             </div>
           </div>
 
-          <div className="lg:col-span-12 space-y-1">
+          <div className="lg:col-span-12 space-y-0.5">
             <label className="text-xs font-bold text-slate-400">備註 (選填)</label>
             <input
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={isRestricted}
-              className={`w-full p-2 bg-[#020617] text-slate-100 text-xs font-bold rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full p-2 bg-[#020617] text-slate-100 text-xs font-bold rounded-lg border border-slate-700 outline-none focus:ring-1 focus:ring-blue-500/20 h-[34px] ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
           </div>
 
@@ -458,7 +458,7 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
             <button
               type="submit"
               disabled={isRestricted}
-              className={`w-full md:w-40 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-lg transition-all shadow-lg shadow-blue-600/10 active:scale-95 flex items-center justify-center gap-1.5 ${isRestricted ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+              className={`w-full md:w-36 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-lg transition-all shadow-lg shadow-blue-600/10 active:scale-95 flex items-center justify-center gap-1.5 ${isRestricted ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
             >
               <i className="fa-solid fa-paper-plane"></i>
               {isRestricted ? '報名功能已鎖定' : '報名'}

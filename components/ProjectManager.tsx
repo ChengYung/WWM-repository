@@ -22,73 +22,74 @@ const ProjectCard = memo(({ project, onClick, onDelete, isDeletionBlocked }: {
   return (
     <div 
       onClick={onClick}
-      className={`bg-[#0f172a] p-6 rounded-3xl border ${project.isRestricted ? 'border-red-500/50 hover:border-red-500 bg-red-500/5 shadow-red-500/5' : 'border-slate-800 hover:border-blue-500/50 hover:bg-slate-800/50'} transition-all cursor-pointer group shadow-lg flex flex-col relative overflow-hidden`}
+      className={`bg-[#0f172a] px-5 py-4 rounded-xl border ${project.isRestricted ? 'border-red-500/50 hover:border-red-500 bg-red-500/5 shadow-red-500/5' : 'border-slate-800 hover:border-blue-500/30 hover:bg-slate-800/50'} transition-all cursor-pointer group shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden`}
     >
       {project.isRestricted && (
-        <div className="absolute top-0 right-0 bg-red-600 text-white text-[8px] font-black px-3 py-1 uppercase tracking-widest rounded-bl-xl z-10 animate-pulse">
-          系統限制中
+        <div className="absolute top-0 right-0 bg-red-600 text-white text-[8px] font-black px-2.5 py-0.5 uppercase tracking-widest rounded-bl-lg z-10 animate-pulse">
+          限制中
         </div>
       )}
       
-      <div className="flex justify-between items-start mb-6">
-        <div className={`h-12 w-12 ${project.isRestricted ? 'bg-red-500/20 text-red-500 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : 'bg-blue-500/10 text-blue-500 group-hover:bg-blue-500 group-hover:text-white'} rounded-2xl flex items-center justify-center transition-all shadow-inner`}>
-          <i className={`fa-solid ${project.isRestricted ? 'fa-lock' : 'fa-folder-tree'} text-xl`}></i>
+      {/* Left part: icon & title & details */}
+      <div className="flex items-center gap-4 min-w-0 flex-1">
+        <div className={`h-10 w-10 shrink-0 ${project.isRestricted ? 'bg-red-500/20 text-red-500 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : 'bg-blue-500/10 text-blue-500 group-hover:bg-blue-600 group-hover:text-white'} rounded-xl flex items-center justify-center transition-all shadow-inner`}>
+          <i className={`fa-solid ${project.isRestricted ? 'fa-lock' : 'fa-folder-tree'} text-lg`}></i>
         </div>
-        <div className="flex gap-2">
-           {!isDeletionBlocked && !project.isRestricted && (
-             <button 
-               onClick={(e) => {
-                 e.stopPropagation();
-                 onDelete(e);
-               }}
-               className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shadow-lg"
-             >
-               <i className="fa-solid fa-trash-can text-sm"></i>
-             </button>
-           )}
-        </div>
-      </div>
-      
-      <div className="space-y-1 mb-6">
-        <h4 className="font-black text-xl text-slate-100 group-hover:text-blue-400 transition-colors truncate">{project.name}</h4>
-        <div className="flex flex-wrap items-center gap-2">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              navigator.clipboard.writeText(project.id);
-              showToast('ID 已複製', 'success');
-            }}
-            className="text-[10px] text-slate-400 hover:text-blue-400 transition-colors font-bold uppercase tracking-widest px-2 py-0.5 bg-slate-900/50 rounded-md border border-slate-800/50 flex items-center gap-1.5"
-            title="點擊複製 ID"
-          >
-            <i className="fa-regular fa-copy text-[8px]"></i>
-            ID: {project.id}
-          </button>
-          <span className="w-1 h-1 rounded-full bg-slate-800"></span>
-          <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">建立於 {new Date(project.createdAt).toLocaleTimeString()}</span>
-          <span className="w-1 h-1 rounded-full bg-slate-800"></span>
-          <span className="text-[10px] text-blue-500/70 font-black uppercase tracking-widest">{project.playerCount || 0} 人次已報名</span>
-        </div>
-      </div>
-      
-      <div className="mt-auto pt-6 border-t border-slate-800/50 flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-widest leading-none">使用期限</span>
-          <div className="flex flex-col">
-            <span className={`text-[10px] font-black uppercase tracking-tight ${isExpired || daysLeft < 7 ? 'text-red-500' : 'text-slate-400'}`}>
-              {isExpired ? '已逾期' : `${daysLeft} 天後到期`}
-            </span>
-            {expiryDate && (
-              <span className="text-[8px] text-slate-700 font-bold tabular-nums">
-                {expiryDate.toLocaleString()} 截止
-              </span>
-            )}
+        <div className="min-w-0 flex-1">
+          <h4 className="font-black text-sm text-slate-100 group-hover:text-blue-400 transition-colors truncate">{project.name}</h4>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 text-[10px] text-slate-500 font-bold uppercase tracking-wide">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(project.id);
+                showToast('ID 已複製', 'success');
+              }}
+              className="text-[9px] text-slate-400 hover:text-blue-400 transition-colors font-mono tracking-tight px-1.5 py-0.2 bg-slate-900/60 rounded border border-slate-800 flex items-center gap-1 leading-none"
+              title="點擊複製 ID"
+            >
+              <i className="fa-regular fa-copy text-[8px]"></i>
+              ID: {project.id}
+            </button>
+            <span className="w-1 h-1 rounded-full bg-slate-800"></span>
+            <span>建立時間: {new Date(project.createdAt).toLocaleDateString()} {new Date(project.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            <span className="w-1 h-1 rounded-full bg-slate-800"></span>
+            <span className="text-blue-500/80 font-black">{project.playerCount || 0} 員已報名</span>
           </div>
         </div>
+      </div>
+      
+      {/* Right part: expiry info & delete button */}
+      <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-slate-800/50">
+        <div className="flex flex-col gap-0.5 leading-none">
+          <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-widest">使用期限</span>
+          <span className={`text-[10px] font-black uppercase ${isExpired || daysLeft < 7 ? 'text-red-500' : 'text-slate-400'}`}>
+            {isExpired ? '已逾期' : `${daysLeft} 天後到期`}
+          </span>
+          {expiryDate && (
+            <span className="text-[8.5px] text-slate-600 font-bold">
+              {expiryDate.toLocaleDateString()} 截止
+            </span>
+          )}
+        </div>
         
-        <div className="flex items-center gap-2 text-blue-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-             <span className="text-[10px] font-black uppercase tracking-widest">管理專案</span>
-             <i className="fa-solid fa-arrow-right-long animate-bounce-x"></i>
+        <div className="flex items-center gap-2">
+          {!isDeletionBlocked && !project.isRestricted && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(e);
+              }}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all transform hover:scale-105 shadow-md"
+              title="刪除此專案"
+            >
+              <i className="fa-solid fa-trash-can text-xs"></i>
+            </button>
+          )}
+          
+          <div className="hidden md:flex items-center gap-1 text-blue-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-1 group-hover:translate-x-0">
+            <span className="text-[10px] font-black uppercase tracking-wider">管理</span>
+            <i className="fa-solid fa-arrow-right-long text-xs"></i>
+          </div>
         </div>
       </div>
     </div>
@@ -239,7 +240,7 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({ user, login, log
           <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center bg-[#0f172a] p-6 rounded-2xl border border-slate-800 shadow-xl">
               <div>
-                <h3 className="font-black text-xs text-slate-500 uppercase tracking-widest mb-1">建立新報名專案</h3>
+                <h3 className="font-black text-xs text-slate-500 uppercase tracking-widest mb-1">建立新百業(專案)</h3>
                 <p className="text-[10px] text-slate-600">輸入百業名稱</p>
               </div>
               <form onSubmit={handleCreate} className="flex gap-2">
@@ -247,7 +248,7 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({ user, login, log
                   type="text" 
                   value={newProjectName}
                   onChange={e => setNewProjectName(e.target.value)}
-                  placeholder="例如: 第四期燕雲百業" 
+                  placeholder="輸入新的百業名稱或是專案名稱" 
                   className="bg-[#020617] border border-slate-800 rounded-lg px-4 py-2 text-xs focus:ring-1 ring-blue-500 outline-none w-64 text-white"
                 />
                 <button 
@@ -259,9 +260,9 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({ user, login, log
               </form>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
               {projects.length === 0 ? (
-                <div className="col-span-2 text-center py-20 border-2 border-dashed border-slate-900 rounded-3xl">
+                <div className="text-center py-20 border-2 border-dashed border-slate-900 rounded-3xl">
                    <p className="text-slate-700 font-bold italic text-sm">尚未建立任何專案</p>
                 </div>
               ) : (
