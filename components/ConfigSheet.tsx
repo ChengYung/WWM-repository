@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { MartialArts, Player, HeartMethod } from '../types';
+import { MartialArts, Player, HeartMethod, Member } from '../types';
 import { useToast } from './Toast';
 
 export const getRarityBadge = (rarity?: 'gold' | 'purple' | 'blue' | string) => {
@@ -13,6 +13,7 @@ interface ConfigSheetProps {
   martialArts: MartialArts[];
   teams: string[];
   players: Player[];
+  members?: Member[];
   heartMethods?: HeartMethod[];
   weaponSets?: string[];
   armorSets?: string[];
@@ -22,6 +23,7 @@ interface ConfigSheetProps {
   onUpdateWeaponSets?: (newSets: string[]) => void;
   onUpdateArmorSets?: (newSets: string[]) => void;
   onBatchUpdatePlayers: (updates: { id: string; team: string }[]) => void;
+  onUpdateMembers?: (updated: Member[]) => void;
   onRestoreDefaults: () => void;
   showConfirm: (title: string, message: string, onConfirm: () => void) => void;
   isRestricted?: boolean;
@@ -31,6 +33,7 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
   martialArts, 
   teams, 
   players,
+  members = [],
   heartMethods = [],
   weaponSets = [],
   armorSets = [],
@@ -40,6 +43,7 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
   onUpdateWeaponSets,
   onUpdateArmorSets,
   onBatchUpdatePlayers,
+  onUpdateMembers,
   onRestoreDefaults,
   showConfirm,
   isRestricted
@@ -86,7 +90,46 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
 
   const removeWeaponSet = (index: number) => {
     if (isRestricted || !onUpdateWeaponSets) return;
-    onUpdateWeaponSets(weaponSets.filter((_, i) => i !== index));
+    const nameToRemove = weaponSets[index];
+    
+    // Find affected members who have this weaponSet in any of their combos
+    const affectedMembers = members.filter(m => 
+      m.combos?.some(combo => combo.weaponSet === nameToRemove)
+    );
+
+    const executeRemove = () => {
+      // Clean up the weaponSet from affected members
+      if (affectedMembers.length > 0 && onUpdateMembers) {
+        const updatedMembers = members.map(m => {
+          if (!m.combos) return m;
+          const updatedCombos = m.combos.map(combo => {
+            if (combo.weaponSet === nameToRemove) {
+              const { weaponSet, ...rest } = combo;
+              return { ...rest };
+            }
+            return combo;
+          });
+          return { ...m, combos: updatedCombos };
+        });
+        onUpdateMembers(updatedMembers);
+      }
+      onUpdateWeaponSets(weaponSets.filter((_, i) => i !== index));
+      showToast(`已成功移除 [${nameToRemove}] 武器裝備配置，並同步清除所有相關成員之配置！`, 'success');
+    };
+
+    // First confirmation: warning
+    showConfirm(
+      "確認要移除該武器裝備配置？",
+      `注意：此刪除動作將同步自所有已登入成員的搭配中移除「${nameToRemove}」武器配置。${affectedMembers.length > 0 ? `目前共有 ${affectedMembers.length} 位成員使用此配置項目。` : ''}確定要繼續嗎？`,
+      () => {
+        // Second confirmation: double-check
+        showConfirm(
+          "重複確認刪除（第二階段確認）",
+          `您即將永久移除 [${nameToRemove}]。這將移除百業成員的相關配置且此操作無法復原。請再次確認是否真的要刪除？`,
+          executeRemove
+        );
+      }
+    );
   };
 
   const handleUpdateWeaponSet = (index: number) => {
@@ -121,7 +164,46 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
 
   const removeArmorSet = (index: number) => {
     if (isRestricted || !onUpdateArmorSets) return;
-    onUpdateArmorSets(armorSets.filter((_, i) => i !== index));
+    const nameToRemove = armorSets[index];
+    
+    // Find affected members who have this armorSet in any of their combos
+    const affectedMembers = members.filter(m => 
+      m.combos?.some(combo => combo.armorSet === nameToRemove)
+    );
+
+    const executeRemove = () => {
+      // Clean up the armorSet from affected members
+      if (affectedMembers.length > 0 && onUpdateMembers) {
+        const updatedMembers = members.map(m => {
+          if (!m.combos) return m;
+          const updatedCombos = m.combos.map(combo => {
+            if (combo.armorSet === nameToRemove) {
+              const { armorSet, ...rest } = combo;
+              return { ...rest };
+            }
+            return combo;
+          });
+          return { ...m, combos: updatedCombos };
+        });
+        onUpdateMembers(updatedMembers);
+      }
+      onUpdateArmorSets(armorSets.filter((_, i) => i !== index));
+      showToast(`已成功移除 [${nameToRemove}] 防具裝備配置，並同步清除所有相關成員之配置！`, 'success');
+    };
+
+    // First confirmation: warning
+    showConfirm(
+      "確認要移除該防具裝備配置？",
+      `注意：此刪除動作將同步自所有已登入成員的搭配中移除「${nameToRemove}」防具配置。${affectedMembers.length > 0 ? `目前共有 ${affectedMembers.length} 位成員使用此配置項目。` : ''}確定要繼續嗎？`,
+      () => {
+        // Second confirmation: double check
+        showConfirm(
+          "重複確認刪除（第二階段確認）",
+          `您即將永久移除 [${nameToRemove}]。這將移除百業成員的相關配置且此操作無法復原。請再次確認是否真的要刪除？`,
+          executeRemove
+        );
+      }
+    );
   };
 
   const handleUpdateArmorSet = (index: number) => {
@@ -152,23 +234,54 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
     const maToRemove = martialArts[index];
     const affectedPlayers = players.filter(p => p.martialArts.includes(maToRemove.name));
     
+    // Find affected members who have this martial art in any of their combos
+    const affectedMembers = members.filter(m => 
+      m.combos?.some(combo => combo.arts?.includes(maToRemove.name))
+    );
+
     const executeRemove = () => {
+      // 1. Move affected players to backfill team if they use this martial art
       if (affectedPlayers.length > 0) {
         const backfillTeam = teams.find(t => t.includes('候補')) || teams[teams.length - 1];
         onBatchUpdatePlayers(affectedPlayers.map(p => ({ id: p.id, team: backfillTeam })));
       }
+      
+      // 2. Clean up the martial art from affected members' combos
+      if (affectedMembers.length > 0 && onUpdateMembers) {
+        const updatedMembers = members.map(m => {
+          if (!m.combos) return m;
+          const updatedCombos = m.combos.map(combo => {
+            if (combo.arts?.includes(maToRemove.name)) {
+              return {
+                ...combo,
+                arts: combo.arts.filter(art => art !== maToRemove.name)
+              };
+            }
+            return combo;
+          });
+          return { ...m, combos: updatedCombos };
+        });
+        onUpdateMembers(updatedMembers);
+      }
+
+      // 3. Remove the martial art from configured list
       onUpdateMartialArts(martialArts.filter((_, i) => i !== index));
+      showToast(`已成功移除 [${maToRemove.name}] 武學配置，並同步清除所有相關成員之搭配！`, 'success');
     };
 
-    if (affectedPlayers.length > 0) {
-      showConfirm(
-        "目前已存在人員，是否變動？", 
-        `已有 ${affectedPlayers.length} 位人員使用「${maToRemove.name}」，移除後預設會將他們移動到候補隊伍。`, 
-        executeRemove
-      );
-    } else {
-      executeRemove();
-    }
+    // First confirmation: warning of member cleanup
+    showConfirm(
+      "確認要移除該武學配置？",
+      `注意：此刪除動作將同步自所有已登入成員的搭配中移除「${maToRemove.name}」武學。${affectedPlayers.length > 0 ? `目前共有 ${affectedPlayers.length} 位報名人員使用此武學，移除後將移動他們到候補隊伍。` : ''}確定要繼續嗎？`,
+      () => {
+        // Second confirmation: double-check
+        showConfirm(
+          "重複確認刪除（第二階段確認）",
+          `您即將永久移除 [${maToRemove.name}]。這將移除百業成員的相關配置且此操作無法復原。請再次確認是否真的要刪除？`,
+          executeRemove
+        );
+      }
+    );
   };
 
   const addHeartMethod = () => {
@@ -190,10 +303,49 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
   };
 
   const removeHm = (index: number) => {
-    if (isRestricted) return;
-    if (onUpdateHeartMethods) {
+    if (isRestricted || !onUpdateHeartMethods) return;
+    const hmToRemove = heartMethods[index];
+
+    // Find affected members who have this heart method in any of their combos
+    const affectedMembers = members.filter(m => 
+      m.combos?.some(combo => combo.heartMethods?.includes(hmToRemove.name))
+    );
+
+    const executeRemove = () => {
+      // Clean up the heart method from affected members' combos
+      if (affectedMembers.length > 0 && onUpdateMembers) {
+        const updatedMembers = members.map(m => {
+          if (!m.combos) return m;
+          const updatedCombos = m.combos.map(combo => {
+            if (combo.heartMethods?.includes(hmToRemove.name)) {
+              return {
+                ...combo,
+                heartMethods: combo.heartMethods.filter(h => h !== hmToRemove.name)
+              };
+            }
+            return combo;
+          });
+          return { ...m, combos: updatedCombos };
+        });
+        onUpdateMembers(updatedMembers);
+      }
       onUpdateHeartMethods(heartMethods.filter((_, i) => i !== index));
-    }
+      showToast(`已成功移除 [${hmToRemove.name}] 心法配置，並同步清除所有相關成員之配置！`, 'success');
+    };
+
+    // First confirmation: warning
+    showConfirm(
+      "確認要移除該心法配置？",
+      `注意：此刪除動作將同步自所有已登入成員的搭配中移除「${hmToRemove.name}」心法。${affectedMembers.length > 0 ? `目前共有 ${affectedMembers.length} 位成員配戴此心法。` : ''}確定要繼續嗎？`,
+      () => {
+        // Second confirmation: double-check
+        showConfirm(
+          "重複確認刪除（第二階段確認）",
+          `您即將永久移除 [${hmToRemove.name}]。這將移除百業成員的相關配置且此操作無法復原。請再次確認是否真的要刪除？`,
+          executeRemove
+        );
+      }
+    );
   };
 
   const handleUpdateHm = (index: number) => {
@@ -283,17 +435,22 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
         onBatchUpdatePlayers(affectedPlayers.map(p => ({ id: p.id, team: backfillTeam })));
       }
       onUpdateTeams(teams.filter((_, i) => i !== index));
+      showToast(`已成功移除 [${teamToRemove}] 隊伍配置！`, 'success');
     };
 
-    if (affectedPlayers.length > 0) {
-      showConfirm(
-        "目前已存在人員，是否變動？",
-        `已有 ${affectedPlayers.length} 位人員在「${teamToRemove}」，移除後預設會將他們移動到候補隊伍。`,
-        executeRemove
-      );
-    } else {
-      executeRemove();
-    }
+    // First confirmation: warn user of side effect of moving people
+    showConfirm(
+      "確認要移除該隊伍配置？",
+      `注意：此刪除動作將同步自所有報名人員的編隊中移除「${teamToRemove}」。${affectedPlayers.length > 0 ? `目前共計 ${affectedPlayers.length} 位人員在此小隊，移除後預設會將他們移動到候補。` : ''}確定要繼續嗎？`,
+      () => {
+        // Second confirmation: double-check
+        showConfirm(
+          "重複確認刪除（第二階段確認）",
+          `您即將永久移除 [${teamToRemove}]，且此操作無法復原。請再次確認是否真的要刪除此隊伍？`,
+          executeRemove
+        );
+      }
+    );
   };
 
   const handleUpdateMa = (index: number) => {
@@ -369,52 +526,69 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
     }
     const execute = () => {
       onRestoreDefaults();
+      // Clear editing states so UI doesn't remain in editing mode with stale indexes or inputs
+      setEditingMaIdx(null);
+      setEditingTeamIdx(null);
+      setEditingHmIdx(null);
+      setEditingWeaponIdx(null);
+      setEditingArmorIdx(null);
+      setNewMaName('');
+      setNewTeamName('');
+      setNewWeaponSet('');
+      setNewArmorSet('');
+      setNewHmName('');
+      setNewHmDesc('');
+      setNewHmRarity('gold');
+      setNewHmType('通用');
+      setCustomHmType('');
+
       if (players.length > 0) {
         // We know '候補' is in default TEAMS
         onBatchUpdatePlayers(players.map(p => ({ id: p.id, team: '候補' })));
       }
+      showToast('已成功將所有武學、隊伍、心法、武器、防具及任務說明與攻略還原至系統初始狀態！', 'success');
     };
 
     showConfirm(
       "還原預設配置",
-      "這將會把所有武學、隊伍、任務說明及攻略還原至系統初始狀態。注意：還原後所有報名人員將被移動至「候補」隊伍以確保資料安全且不亂套。",
+      "這將會把所有武學、隊伍、心法、武器裝備、防具裝備、任務說明及攻略還原至系統初始狀態。注意：還原後所有報名人員將被移動至「候補」隊伍以確保資料安全且不亂套。",
       execute
     );
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Restore Defaults */}
-      <section className="bg-red-500/5 border border-red-500/20 p-8 rounded-2xl">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="space-y-2">
+      <section className="bg-red-500/5 border border-red-500/20 p-4 rounded-xl">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="space-y-1">
             <h3 className="text-xl font-black flex items-center gap-3 text-red-500 uppercase tracking-tighter">
               <i className="fa-solid fa-triangle-exclamation"></i>
               配置初始化
             </h3>
             <p className="text-xs text-slate-500 font-bold max-w-xl">
-              如果不小心將武學或隊伍配置改亂了，可以使用此功能還原至系統預設狀態（包含：常用二十大武學、標準一二三小隊配置、任務說明及攻略指引）。
+              如果不小心將武學、隊伍、心法或裝備等配置改亂了，可以使用此功能還原至系統預設狀態（包含：常用二十大武學、標準一二三小隊配置、所有預設心法及武器防具套組、任務說明與攻略指引）。
             </p>
           </div>
           <button 
             disabled={isRestricted}
             onClick={handleRestoreDefaultsInternal}
-            className={`px-8 py-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-2xl transition-all shadow-xl shadow-red-600/20 active:scale-95 whitespace-nowrap ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl transition-all shadow-xl shadow-red-600/20 active:scale-95 whitespace-nowrap ${isRestricted ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             還原預設配置
           </button>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Martial Arts Config */}
-        <section className={`bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 ${isRestricted ? 'opacity-80' : ''}`}>
-          <h3 className="text-xl font-black mb-8 flex items-center gap-3 text-indigo-600 dark:text-indigo-400 uppercase tracking-tighter">
+        <section className={`bg-white dark:bg-slate-900 p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 ${isRestricted ? 'opacity-80' : ''}`}>
+          <h3 className="text-xl font-black mb-4 flex items-center gap-3 text-indigo-600 dark:text-indigo-400 uppercase tracking-tighter">
             <i className="fa-solid fa-database"></i>
             武學配置
           </h3>
           
-          <div className="grid grid-cols-12 gap-3 mb-8 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div className="grid grid-cols-12 gap-2 mb-4 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="col-span-12 md:col-span-6">
               <input
                 type="text"
@@ -443,9 +617,9 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
             </button>
           </div>
 
-          <div className="space-y-3 overflow-y-auto max-h-[400px] pr-2">
+          <div className="space-y-1.5 overflow-y-auto max-h-[400px] pr-2">
             {martialArts.map((ma, idx) => (
-              <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-indigo-500/30 transition-all">
+              <div key={idx} className="flex justify-between items-center py-2 px-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-indigo-500/30 transition-all">
                 <div className="flex items-center gap-3 flex-1">
                   <span className="w-3 h-3 rounded-full shadow-lg" style={{ backgroundColor: ma.color }}></span>
                   {editingMaIdx === idx && !isRestricted ? (
@@ -481,13 +655,13 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
         </section>
 
         {/* Team Config */}
-        <section className={`bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
-          <h3 className="text-xl font-black mb-8 flex items-center gap-3 text-teal-600 dark:text-teal-400 uppercase tracking-tighter">
+        <section className={`bg-white dark:bg-slate-900 p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
+          <h3 className="text-xl font-black mb-4 flex items-center gap-3 text-teal-600 dark:text-teal-400 uppercase tracking-tighter">
             <i className="fa-solid fa-network-wired"></i>
             隊伍配置
           </h3>
 
-          <div className="flex flex-col gap-3 mb-8 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="flex gap-2 items-center">
               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">新增隊伍序號:</span>
               <div className="flex flex-wrap gap-2">
@@ -530,9 +704,9 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
             </div>
           </div>
 
-          <div className="space-y-3 overflow-y-auto max-h-[400px] pr-2">
+          <div className="space-y-1.5 overflow-y-auto max-h-[400px] pr-2">
             {teams.map((team, idx) => (
-              <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-teal-500/30 transition-all">
+              <div key={idx} className="flex justify-between items-center py-2 px-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-teal-500/30 transition-all">
                 <div className="flex-1">
                   {editingTeamIdx === idx && !isRestricted ? (
                     <input
@@ -567,13 +741,13 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
         </section>
 
         {/* Heart Methods Config */}
-        <section className={`bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
-          <h3 className="text-xl font-black mb-8 flex items-center gap-3 text-emerald-600 dark:text-emerald-400 uppercase tracking-tighter">
+        <section className={`bg-white dark:bg-slate-900 p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
+          <h3 className="text-xl font-black mb-4 flex items-center gap-3 text-emerald-600 dark:text-emerald-400 uppercase tracking-tighter">
             <i className="fa-solid fa-heart-pulse"></i>
             心法配置
           </h3>
 
-          <div className="flex flex-col gap-3 mb-8 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="space-y-4">
               {/* Row 1: Name and Rarity */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -649,11 +823,11 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
             </div>
           </div>
 
-          <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2">
+          <div className="space-y-1.5 overflow-y-auto max-h-[300px] pr-2">
             {heartMethods.map((hm, idx) => {
               const badge = getRarityBadge(hm.rarity);
               return (
-                <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-emerald-501/30 transition-all space-y-2">
+                <div key={idx} className="p-2 px-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-emerald-501/30 transition-all space-y-2">
                   <div className="flex justify-between items-start gap-2">
                     <div className="flex-1">
                       {editingHmIdx === idx && !isRestricted ? (
@@ -772,15 +946,15 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
         </section>
 
         {/* Equipment Sets Config */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
           {/* Weapon Sets Config */}
-          <section className={`bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
-            <h3 className="text-xl font-black mb-8 flex items-center gap-3 text-amber-600 dark:text-amber-400 uppercase tracking-tighter">
+          <section className={`bg-white dark:bg-slate-900 p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
+            <h3 className="text-xl font-black mb-4 flex items-center gap-3 text-amber-600 dark:text-amber-400 uppercase tracking-tighter">
               <i className="fa-solid fa-gavel"></i>
               武器裝備套裝
             </h3>
 
-            <div className="flex flex-col gap-3 mb-8 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
               <div className="flex gap-3">
                 <input
                   type="text"
@@ -804,9 +978,9 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
               </div>
             </div>
 
-            <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2">
+            <div className="space-y-1.5 overflow-y-auto max-h-[300px] pr-2">
               {weaponSets.map((ws, idx) => (
-                <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-amber-500/30 transition-all">
+                <div key={idx} className="flex justify-between items-center py-2 px-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-amber-500/30 transition-all">
                   <div className="flex-1">
                     {editingWeaponIdx === idx && !isRestricted ? (
                       <input
@@ -841,13 +1015,13 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
           </section>
 
           {/* Armor Sets Config */}
-          <section className={`bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
-            <h3 className="text-xl font-black mb-8 flex items-center gap-3 text-sky-600 dark:text-sky-400 uppercase tracking-tighter">
+          <section className={`bg-white dark:bg-slate-900 p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col ${isRestricted ? 'opacity-80' : ''}`}>
+            <h3 className="text-xl font-black mb-4 flex items-center gap-3 text-sky-600 dark:text-sky-400 uppercase tracking-tighter">
               <i className="fa-solid fa-shield-halved"></i>
               防具裝備套裝
             </h3>
 
-            <div className="flex flex-col gap-3 mb-8 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
               <div className="flex gap-3">
                 <input
                   type="text"
@@ -871,9 +1045,9 @@ export const ConfigSheet: React.FC<ConfigSheetProps> = ({
               </div>
             </div>
 
-            <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2">
+            <div className="space-y-1.5 overflow-y-auto max-h-[300px] pr-2">
               {armorSets.map((as, idx) => (
-                <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-sky-500/30 transition-all">
+                <div key={idx} className="flex justify-between items-center py-2 px-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 group hover:border-sky-500/30 transition-all">
                   <div className="flex-1">
                     {editingArmorIdx === idx && !isRestricted ? (
                       <input

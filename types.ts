@@ -84,7 +84,7 @@ export interface AppConfig {
 export interface MartialCombo {
   name: string;
   arts: string[];
-  power: number;
+  power?: number;
   heartMethods?: string[];
   weaponSet?: string;
   armorSet?: string;

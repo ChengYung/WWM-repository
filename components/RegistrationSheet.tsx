@@ -335,7 +335,7 @@ export const RegistrationSheet: React.FC<RegistrationSheetProps> = ({
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1.5">對應戰力指數 (鵝) *</label>
+              <label className="text-xs font-bold text-slate-400 block mb-1.5">戰力指數 (鵝)</label>
               <div className="relative">
                 <input
                   type="text"

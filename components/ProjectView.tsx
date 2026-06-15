@@ -257,6 +257,21 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
     }
   }, [projectId, isAdmin, isRestricted]);
 
+  const handleUpdateMembers = useCallback(async (updatedMembers: Member[]) => {
+    if (!projectId) return;
+    if (!isAdmin && isRestricted) {
+      showToast('專案已過期或被限制，無法修改成員', 'error');
+      return;
+    }
+    try {
+      if (updatedMembers.length > 0) {
+        await ProjectService.updateMembers(projectId, updatedMembers);
+      }
+    } catch (error) {
+      console.error("Failed to batch update members", error);
+    }
+  }, [projectId, isAdmin, isRestricted]);
+
   const handleDeleteMember = useCallback((memberId: string) => {
     if (!projectId) return;
     if (!isAdmin && isRestricted) {
@@ -548,6 +563,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
               martialArts={martialArts}
               teams={teams}
               players={players}
+              members={members}
               heartMethods={heartMethods}
               weaponSets={weaponSets}
               armorSets={armorSets}
@@ -557,6 +573,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ user, login, logout })
               onUpdateWeaponSets={(ws) => handleUpdateProjectConfig({ weaponSets: ws })}
               onUpdateArmorSets={(as) => handleUpdateProjectConfig({ armorSets: as })}
               onBatchUpdatePlayers={handleUpdatePlayers}
+              onUpdateMembers={handleUpdateMembers}
               onRestoreDefaults={handleRestoreDefaults}
               showConfirm={showConfirm}
               isRestricted={isRestricted && !isAdmin}

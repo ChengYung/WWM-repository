@@ -684,9 +684,9 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
               </div>
             )}
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-355 transition-colors">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-400 hover:text-amber-300 transition-colors animate-pulse">
             <span>{isToolbarExpanded ? '點擊收合' : '點擊展開篩選'}</span>
-            <i className={`fa-solid ${isToolbarExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-slate-400 transition-transform duration-200`}></i>
+            <i className={`fa-solid ${isToolbarExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-amber-400 transition-transform duration-200`}></i>
           </div>
         </div>
 
@@ -870,7 +870,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
                 className="px-3 h-8 bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-bold rounded-lg transition-all shadow flex items-center justify-center gap-1 cursor-pointer"
               >
                 <i className="fa-solid fa-file-image"></i>
-                匯出隊伍 (PNG)
+                匯出圖檔 (PNG)
               </button>
               <button
                 type="button"

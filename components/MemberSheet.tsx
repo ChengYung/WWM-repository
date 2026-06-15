@@ -2,6 +2,18 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Member, MartialCombo, MartialArts, HeartMethod, Player } from '../types';
 import { useToast } from './Toast';
 
+const getMappedHeartMethod = (artName: string): string | undefined => {
+  if (artName === '無名劍法') return '無名心法';
+  if (artName === '積矩九劍') return '劍氣縱橫';
+  if (artName === '喈夫刀法' || artName === '嗟夫刀法') return '山河絕韻';
+  if (artName === '九重春色') return '花上月令';
+  if (artName === '明川藥典') return '君臣藥';
+  if (artName === '泥犁三垢') return '忘川絕響';
+  if (artName === '醉夢遊春') return '千營一呼';
+  if (artName === '斬雪刀法') return '霜天白夜';
+  return undefined;
+};
+
 const HeartMethodTooltip: React.FC<{ name: string; projectHeartMethods?: HeartMethod[] }> = ({ name, projectHeartMethods = [] }) => {
   const method = projectHeartMethods.find(m => m.name === name) || { name, description: '暫無詳細描述' };
   const initial = name.slice(0, 2);
@@ -142,7 +154,7 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
   const [comboName, setComboName] = useState('');
   const [selectedClassArts, setSelectedClassArts] = useState<string[]>([]);
   const [comboPowerStr, setComboPowerStr] = useState('');
-  const [selectedClassHms, setSelectedClassHms] = useState<string[]>([]);
+  const [selectedClassHms, setSelectedClassHms] = useState<string[]>(['易水歌']);
   const [comboWeaponSet, setComboWeaponSet] = useState('');
   const [comboArmorSet, setComboArmorSet] = useState('');
 
@@ -155,10 +167,16 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
   const [editingComboName, setEditingComboName] = useState('');
   const [editingComboPowerStr, setEditingComboPowerStr] = useState('');
   const [editingSelectedArts, setEditingSelectedArts] = useState<string[]>([]);
-  const [editingSelectedHms, setEditingSelectedHms] = useState<string[]>([]);
+  const [editingSelectedHms, setEditingSelectedHms] = useState<string[]>(['易水歌']);
   const [editingComboWeaponSet, setEditingComboWeaponSet] = useState('');
   const [editingComboArmorSet, setEditingComboArmorSet] = useState('');
   const [editingComboIndex, setEditingComboIndex] = useState<number | null>(null);
+
+  // Dropdown states for multi-select
+  const [isAddMaDropdownOpen, setIsAddMaDropdownOpen] = useState(false);
+  const [isAddHmDropdownOpen, setIsAddHmDropdownOpen] = useState(false);
+  const [isEditMaDropdownOpen, setIsEditMaDropdownOpen] = useState(false);
+  const [isEditHmDropdownOpen, setIsEditHmDropdownOpen] = useState(false);
 
   // Search State
   const [searchTerm, setSearchTerm] = useState('');
@@ -180,10 +198,14 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
       return;
     }
 
-    const powerNum = parseFloat(comboPowerStr);
-    if (isNaN(powerNum) || powerNum < 0) {
-      showToast('請輸入一個有效的戰力指數 (數字，可包含小數)', 'error');
-      return;
+    let powerNum: number | undefined = undefined;
+    if (comboPowerStr.trim() !== '') {
+      const parsed = parseFloat(comboPowerStr);
+      if (isNaN(parsed) || parsed < 0) {
+        showToast('請輸入一個有效的戰力指數 (數字，可包含小數)', 'error');
+        return;
+      }
+      powerNum = parsed;
     }
 
     const newCombo: MartialCombo = {
@@ -199,7 +221,7 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
     setComboName('');
     setComboPowerStr('');
     setSelectedClassArts([]);
-    setSelectedClassHms([]);
+    setSelectedClassHms(['易水歌']);
     setComboWeaponSet('');
     setComboArmorSet('');
     showToast('已新增一組搭配與戰力', 'success');
@@ -220,6 +242,12 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
     const trimmedName = gameName.trim();
     if (!trimmedName) {
       showToast('請輸入遊戲名稱', 'error');
+      return;
+    }
+
+    const exists = members.some(m => m.gameName.trim().toLowerCase() === trimmedName.toLowerCase());
+    if (exists) {
+      showToast(`成員 [${trimmedName}] 已經登入，禁止重複登入到成員名單中！`, 'error');
       return;
     }
 
@@ -251,13 +279,55 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
       setComboName('');
       setComboPowerStr('');
       setSelectedClassArts([]);
-      setSelectedClassHms([]);
+      setSelectedClassHms(['易水歌']);
       setComboWeaponSet('');
       setComboArmorSet('');
     } catch (err) {
       console.error(err);
       showToast('成員登入失敗', 'error');
     }
+  };
+
+  const handleLoadMemberData = (m: Member) => {
+    setGameName(m.gameName);
+    setNoSelf(!!m.noSelf);
+    setHasDc(!!m.hasDc);
+    setCanMic(!!m.canMic);
+    setCombos(m.combos || []);
+    showToast(`已成功載入百業成員 [${m.gameName}] 的現有資料，您可以在此調整或新增其搭配搭配。`, 'success');
+  };
+
+  const handleLoadPlayerData = (p: Player) => {
+    setGameName(p.gameId);
+    setNoSelf(!!p.noSelf);
+    setHasDc(!!p.hasDc);
+    setCanMic(!!p.canMic);
+    
+    setComboName('搭配1');
+    setComboPowerStr(p.power || '');
+    setSelectedClassArts(p.martialArts || []);
+    
+    const loadedHms = ['易水歌'];
+    (p.martialArts || []).forEach(art => {
+      let mapping: string | undefined;
+      if (art === '無名劍法') mapping = '無名心法';
+      else if (art === '積矩九劍') mapping = '劍氣縱橫';
+      else if (art === '喈夫刀法' || art === '嗟夫刀法') mapping = '山河絕韻';
+      else if (art === '九重春色') mapping = '花上月令';
+      else if (art === '明川藥典') mapping = '君臣藥';
+      else if (art === '泥犁三垢') mapping = '忘川絕響';
+      else if (art === '醉夢遊春') mapping = '千營一呼';
+      else if (art === '斬雪刀法') mapping = '霜天白夜';
+      
+      if (mapping && !loadedHms.includes(mapping)) {
+        loadedHms.push(mapping);
+      }
+    });
+    setSelectedClassHms(loadedHms.slice(0, 4));
+
+    setComboWeaponSet('');
+    setComboArmorSet('');
+    showToast(`已成功載入已報名名單 [${p.gameId}] 的資料、武學及戰力！`, 'success');
   };
 
   // Aggregation/Summary calculations
@@ -296,19 +366,21 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
     return { totalCount, avgPower, topArt };
   }, [members]);
 
-  const matchedExistingMember = useMemo(() => {
-    const name = gameName.trim().toLowerCase();
-    if (!name) return null;
-    return members.find(m => m.gameName.toLowerCase().includes(name));
-  }, [members, gameName]);
-
-  const matchedSignupPlayer = useMemo(() => {
-    const name = gameName.trim().toLowerCase();
-    if (!name) return null;
-    const existsInMembers = members.some(m => m.gameName.toLowerCase() === name || m.gameName.toLowerCase().includes(name));
-    if (existsInMembers) return null;
-    return players?.find(p => p.gameId.toLowerCase().includes(name));
-  }, [players, members, gameName]);
+  const searchMatches = useMemo(() => {
+    const query = gameName.trim().toLowerCase();
+    if (!query) return { members: [], players: [] };
+    
+    // Find matching signup players (excluding names already in members, limit to 12)
+    const playerMatches = (players || []).filter(p => 
+      p.gameId.toLowerCase().includes(query) && 
+      !members.some(m => m.gameName.toLowerCase() === p.gameId.toLowerCase())
+    ).slice(0, 12);
+    
+    return {
+      members: [], // 登入百業成員不用再匹配已經登入的成員
+      players: playerMatches
+    };
+  }, [members, players, gameName]);
 
   // Fuzzy Search Filter logic
   const filteredMembers = useMemo(() => {
@@ -400,7 +472,7 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
     setEditingComboWeaponSet('');
     setEditingComboArmorSet('');
     setEditingSelectedArts([]);
-    setEditingSelectedHms([]);
+    setEditingSelectedHms(['易水歌']);
     setEditingComboIndex(null);
   };
 
@@ -424,7 +496,7 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
     setEditingComboWeaponSet('');
     setEditingComboArmorSet('');
     setEditingSelectedArts([]);
-    setEditingSelectedHms([]);
+    setEditingSelectedHms(['易水歌']);
   };
 
   const hasUnsavedChanges = () => {
@@ -514,10 +586,14 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
       return;
     }
 
-    const powerNum = parseFloat(editingComboPowerStr);
-    if (isNaN(powerNum) || powerNum < 0) {
-      showToast('請輸入一個有效的戰力指數 (數字，可包含小數)', 'error');
-      return;
+    let powerNum: number | undefined = undefined;
+    if (editingComboPowerStr.trim() !== '') {
+      const parsed = parseFloat(editingComboPowerStr);
+      if (isNaN(parsed) || parsed < 0) {
+        showToast('請輸入一個有效的戰力指數 (數字，可包含小數)', 'error');
+        return;
+      }
+      powerNum = parsed;
     }
 
     const newCombo: MartialCombo = {
@@ -567,7 +643,7 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
     setEditingComboName('');
     setEditingComboPowerStr('');
     setEditingSelectedArts([]);
-    setEditingSelectedHms([]);
+    setEditingSelectedHms(['易水歌']);
     setEditingComboWeaponSet('');
     setEditingComboArmorSet('');
   };
@@ -630,7 +706,7 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
   return (
     <div className="space-y-6">
       {/* 2. Compact Registration Panel: Add Member */}
-      <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-xl shadow-2xl relative overflow-hidden transition-all duration-300">
+      <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-xl shadow-2xl relative overflow-visible transition-all duration-300">
         <div className="absolute top-0 right-0 p-6 opacity-5 text-7xl text-white pointer-events-none select-none">
           <i className="fa-solid fa-users"></i>
         </div>
@@ -642,9 +718,9 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
             <i className="fa-solid fa-user-plus text-blue-500 text-base"></i>
             <h2 className="text-sm font-black text-white uppercase tracking-tight">登入百業成員</h2>
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-400 hover:text-amber-300 transition-all animate-pulse">
             <span>{isFormExpanded ? '點擊收合' : '點擊展開'}</span>
-            <i className={`fa-solid ${isFormExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-slate-400 transition-transform duration-200`}></i>
+            <i className={`fa-solid ${isFormExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-amber-400 transition-transform duration-200`} />
           </div>
         </div>
 
@@ -664,43 +740,29 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
                 />
                 
                 {/* Fuzzy matches banners */}
-                {matchedExistingMember && (
-                  <div className="mt-1 pb-1 flex items-center gap-1.5 text-[9.5px] text-emerald-400 font-extrabold animate-pulse">
-                    <i className="fa-solid fa-circle-check text-[10px]"></i>
-                    <span>已登入 ─ 系統已在下方為您至頂該成員 (可在下方點擊編輯)</span>
-                  </div>
-                )}
-                
-                {matchedSignupPlayer && !matchedExistingMember && (
-                  <div className="mt-1 pb-1 p-2.5 rounded-xl border border-blue-500/30 bg-blue-500/5 space-y-1.5 animate-fade-in text-left">
-                    <div className="flex items-center justify-between gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-black text-blue-400 flex items-center gap-1">
-                        <i className="fa-solid fa-cloud-arrow-down"></i> 在「報名名單」中找到此成員
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGameName(matchedSignupPlayer.gameId);
-                          setNoSelf(!!matchedSignupPlayer.noSelf);
-                          setHasDc(!!matchedSignupPlayer.hasDc);
-                          setCanMic(!!matchedSignupPlayer.canMic);
-                          
-                          setComboName('搭配1');
-                          setComboPowerStr(matchedSignupPlayer.power || '');
-                          setSelectedClassArts(matchedSignupPlayer.martialArts || []);
-                          setSelectedClassHms([]);
-                          setComboWeaponSet('');
-                          setComboArmorSet('');
-                          showToast(`已快速帶入 [${matchedSignupPlayer.gameId}] 的報名狀態、武學及戰力至下方選擇框，其餘欄位填畢後點選「確定新增搭配」即可！`, 'success');
-                        }}
-                        className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-[9px] rounded-lg cursor-pointer transition-all active:scale-95 shadow shrink-0"
-                      >
-                        一鍵快速帶入資料
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-3 text-[9px] text-slate-400 font-bold tracking-wide">
-                      <span>戰力: <strong className="text-blue-400">{matchedSignupPlayer.power || '-'} 鵝</strong></span>
-                      <span className="truncate">基本武學: <strong className="text-slate-200">{matchedSignupPlayer.martialArts?.join(' + ') || '無'}</strong></span>
+                {gameName.trim() && searchMatches.players.length > 0 && (
+                  <div className="mt-2 p-3.5 rounded-xl border border-slate-800 bg-[#020617]/90 space-y-2 text-left animate-fade-in relative z-20 shadow-xl">
+                    <span className="text-[10.5px] font-extrabold text-slate-400 block pb-1 border-b border-slate-800/80 flex items-center gap-1">
+                      <i className="fa-solid fa-magnifying-glass text-slate-500"></i>
+                      <span>系統已匹配到以下名單 (點選可一鍵帶入資料):</span>
+                    </span>
+                    <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 py-1">
+                      {searchMatches.players.map((p) => (
+                        <button
+                          key={`p-${p.id}`}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleLoadPlayerData(p);
+                          }}
+                          className="px-3 py-1.5 bg-blue-950/20 hover:bg-blue-900/30 border border-blue-800/50 hover:border-blue-500 rounded-xl text-[10px] font-black text-blue-400 transition-all flex items-center gap-1.5 cursor-pointer shadow active:scale-95 hover:shadow-blue-950/50"
+                          title="點選帶入外部已報名玩家資料"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>
+                          <span className="max-w-[120px] truncate">{p.gameId}</span>
+                          <span className="text-[8px] bg-blue-900/40 px-1.5 py-0.2 rounded text-blue-455 border border-blue-850">報名名單</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -767,7 +829,7 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[9.5px] text-slate-400 font-bold block mb-1">對應戰力指數 (鵝) *</label>
+                <label className="text-[9.5px] text-slate-400 font-bold block mb-1">戰力指數 (鵝)</label>
                 <div className="relative">
                   <input
                     type="text"
@@ -819,22 +881,65 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
                 <div className="space-y-1.5">
                   <span className="text-[10px] text-slate-400 font-bold block">武學裝備 (多選，不重複)</span>
                   <div className="flex flex-col sm:flex-row gap-2 items-center">
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value && !selectedClassArts.includes(e.target.value)) {
-                          setSelectedClassArts([...selectedClassArts, e.target.value]);
-                        }
-                      }}
-                      className="w-full sm:w-1/2 bg-[#0f172a] border border-slate-800 rounded-xl px-2 py-1.5 text-[11px] outline-none transition-all h-[34px] font-bold text-slate-300"
-                    >
-                      <option value="" className="bg-[#020617] text-slate-500">● 選擇武學</option>
-                      {martialArts.filter(m => !selectedClassArts.includes(m.name)).map((ma, i) => (
-                        <option key={i} value={ma.name} style={{ color: ma.color || '#94a3b8' }} className="font-bold bg-[#020617]">
-                          ● {ma.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative w-full sm:w-1/2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddMaDropdownOpen(!isAddMaDropdownOpen)}
+                        className="w-full bg-[#0f172a] border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] outline-none transition-all h-[34px] font-bold text-slate-300 flex items-center justify-between text-left hover:border-slate-700 cursor-pointer"
+                      >
+                        <span className="text-slate-400">● 展開選擇武學</span>
+                        <i className={`fa-solid fa-chevron-down text-[8px] text-slate-500 transition-transform ${isAddMaDropdownOpen ? 'rotate-180' : ''}`}></i>
+                      </button>
+                      {isAddMaDropdownOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setIsAddMaDropdownOpen(false)} />
+                          <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-[#090f1d] border border-slate-800 rounded-xl shadow-2xl p-1 z-50 space-y-0.5 scrollbar-thin scrollbar-thumb-slate-800">
+                            {martialArts.map((ma, i) => {
+                              const isSelected = selectedClassArts.includes(ma.name);
+                              return (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedClassArts(selectedClassArts.filter(item => item !== ma.name));
+                                      const mappedHm = getMappedHeartMethod(ma.name);
+                                      if (mappedHm) {
+                                        setSelectedClassHms(selectedClassHms.filter(h => h !== mappedHm));
+                                      }
+                                    } else {
+                                      setSelectedClassArts([...selectedClassArts, ma.name]);
+                                      
+                                      const mapping = getMappedHeartMethod(ma.name);
+                                      if (mapping && !selectedClassHms.includes(mapping)) {
+                                        if (selectedClassHms.length < 4) {
+                                          setSelectedClassHms([...selectedClassHms, mapping]);
+                                        }
+                                      }
+                                    }
+                                  }}
+                                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-[10px] font-bold transition-all ${
+                                    isSelected 
+                                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-extrabold' 
+                                      : 'text-slate-300 hover:bg-[#0f172a] border border-transparent hover:text-white'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-1.5 truncate">
+                                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: ma.color || '#94a3b8' }}></span>
+                                    {ma.name}
+                                  </span>
+                                  {isSelected ? (
+                                    <i className="fa-solid fa-check text-[8px] text-blue-400"></i>
+                                  ) : (
+                                    <span className="w-2.5 h-2.5 rounded border border-slate-700 shrink-0"></span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
                     <div className="flex flex-wrap items-center gap-1.5 min-h-[34px] bg-[#020617]/50 border border-slate-900 rounded-xl px-2.5 py-1 w-full sm:w-1/2">
                       {selectedClassArts.length === 0 ? (
                         <span className="text-[9px] text-slate-600 italic">尚未選擇武學</span>
@@ -845,7 +950,13 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
                             <React.Fragment key={`${ma}-${i}`}>
                               {i > 0 && <span className="text-slate-600 text-[10px] font-black">+</span>}
                               <span
-                                onClick={() => setSelectedClassArts(selectedClassArts.filter(item => item !== ma))}
+                                onClick={() => {
+                                  setSelectedClassArts(selectedClassArts.filter(item => item !== ma));
+                                  const mappedHm = getMappedHeartMethod(ma);
+                                  if (mappedHm) {
+                                    setSelectedClassHms(selectedClassHms.filter(h => h !== mappedHm));
+                                  }
+                                }}
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold bg-[#020617] border-slate-800 text-slate-300 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 cursor-pointer transition-all truncate"
                                 title="點擊刪除"
                               >
@@ -864,32 +975,63 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
                 <div className="space-y-1.5">
                   <span className="text-[10px] text-slate-400 font-bold block">配戴心法 (多選，不重複)</span>
                   <div className="flex flex-col sm:flex-row gap-2 items-center">
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value && !selectedClassHms.includes(e.target.value)) {
-                          if (selectedClassHms.length >= 4) {
-                            showToast('每個搭配的心法最多只能選擇 4 個', 'warning');
-                            return;
-                          }
-                          setSelectedClassHms([...selectedClassHms, e.target.value]);
-                        }
-                      }}
-                      className="w-full sm:w-1/2 bg-[#0f172a] border border-slate-800 rounded-xl px-2 py-1.5 text-[11px] outline-none transition-all h-[34px] font-bold text-slate-300"
-                    >
-                      <option value="" className="bg-[#020617] text-slate-500">● 選擇心法</option>
-                      {heartMethods.filter(h => !selectedClassHms.includes(h.name)).map((hm, i) => {
-                        let rarityColor = '#94a3b8';
-                        if (hm.rarity === 'gold') rarityColor = '#f59e0b';
-                        else if (hm.rarity === 'purple') rarityColor = '#c084fc';
-                        else if (hm.rarity === 'blue') rarityColor = '#60a5fa';
-                        return (
-                          <option key={i} value={hm.name} style={{ color: rarityColor }} className="font-bold bg-[#020617]">
-                            {hm.type ? `[${hm.type}] ` : ''}{hm.name}
-                          </option>
-                        );
-                      })}
-                    </select>
+                    <div className="relative w-full sm:w-1/2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddHmDropdownOpen(!isAddHmDropdownOpen)}
+                        className="w-full bg-[#0f172a] border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] outline-none transition-all h-[34px] font-bold text-slate-300 flex items-center justify-between text-left hover:border-slate-700 cursor-pointer"
+                      >
+                        <span className="text-slate-400">● 展開選擇心法</span>
+                        <i className={`fa-solid fa-chevron-down text-[8px] text-slate-500 transition-transform ${isAddHmDropdownOpen ? 'rotate-180' : ''}`}></i>
+                      </button>
+                      {isAddHmDropdownOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setIsAddHmDropdownOpen(false)} />
+                          <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-[#090f1d] border border-slate-800 rounded-xl shadow-2xl p-1 z-50 space-y-0.5 scrollbar-thin scrollbar-thumb-slate-800">
+                            {heartMethods.map((hm, i) => {
+                              const isSelected = selectedClassHms.includes(hm.name);
+                              let rarityColor = '#94a3b8';
+                              if (hm.rarity === 'gold') rarityColor = '#f59e0b';
+                              else if (hm.rarity === 'purple') rarityColor = '#c084fc';
+                              else if (hm.rarity === 'blue') rarityColor = '#60a5fa';
+
+                              return (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedClassHms(selectedClassHms.filter(item => item !== hm.name));
+                                    } else {
+                                      if (selectedClassHms.length >= 4) {
+                                        showToast('每個搭配的心法最多只能選擇 4 個', 'warning');
+                                        return;
+                                      }
+                                      setSelectedClassHms([...selectedClassHms, hm.name]);
+                                    }
+                                  }}
+                                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-[10px] font-bold transition-all ${
+                                    isSelected
+                                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-extrabold'
+                                      : 'text-slate-300 hover:bg-[#0f172a] border border-transparent hover:text-white'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-1.5 truncate" style={{ color: rarityColor }}>
+                                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: rarityColor }}></span>
+                                    {hm.type ? `[${hm.type}] ` : ''}{hm.name}
+                                  </span>
+                                  {isSelected ? (
+                                    <i className="fa-solid fa-check text-[8px] text-blue-400"></i>
+                                  ) : (
+                                    <span className="w-2.5 h-2.5 rounded border border-slate-700 shrink-0"></span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
                     <div className="flex flex-wrap items-center gap-1.5 min-h-[34px] bg-[#020617]/50 border border-slate-900 rounded-xl px-2.5 py-1 w-full sm:w-1/2">
                       {selectedClassHms.length === 0 ? (
                         <span className="text-[9px] text-slate-600 italic">尚未選擇心法</span>
@@ -1254,7 +1396,7 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
             </div>
 
             {/* Scrollable form body */}
-            <div className="p-6 overflow-y-auto space-y-5">
+            <div className="p-6 pb-36 overflow-y-auto space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-400 block mb-1.5">成員遊戲名稱 *</label>
@@ -1267,6 +1409,14 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
                       const newName = e.target.value.trim();
                       if (!newName) {
                         showToast('遊戲名稱不可為空', 'error');
+                        return;
+                      }
+                      const alreadyExists = members.some(m => m.id !== editingMember.id && m.gameName.trim().toLowerCase() === newName.toLowerCase());
+                      if (alreadyExists) {
+                        showToast(`該名稱 [${newName}] 已經與其他百業成員重複，禁止修改成此名稱！`, 'error');
+                        if (originalMemberRef.current) {
+                          setEditingMember({ ...editingMember, gameName: originalMemberRef.current.gameName });
+                        }
                         return;
                       }
                       try {
@@ -1378,7 +1528,7 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="text-[9.5px] text-slate-400 font-bold block mb-1.5">戰力指數 (鵝) *</label>
+                    <label className="text-[9.5px] text-slate-400 font-bold block mb-1.5">戰力指數 (鵝)</label>
                     <div className="relative">
                       <input
                         type="text"
@@ -1430,22 +1580,65 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
                     <div className="space-y-1.5">
                       <span className="text-[10px] text-slate-400 font-bold block">武學裝備 (多選，不重複)</span>
                       <div className="flex flex-col sm:flex-row gap-2 items-center">
-                        <select
-                          value=""
-                          onChange={(e) => {
-                            if (e.target.value && !editingSelectedArts.includes(e.target.value)) {
-                              setEditingSelectedArts([...editingSelectedArts, e.target.value]);
-                            }
-                          }}
-                          className="w-full sm:w-1/2 bg-[#0f172a] border border-slate-800 rounded-xl px-2 py-1.5 text-[11px] outline-none transition-all h-[34px] font-bold text-slate-300"
-                        >
-                          <option value="" className="bg-[#020617] text-slate-500">● 選擇武學</option>
-                          {martialArts.filter(m => !editingSelectedArts.includes(m.name)).map((ma, i) => (
-                            <option key={i} value={ma.name} style={{ color: ma.color || '#94a3b8' }} className="font-bold bg-[#020617]">
-                              ● {ma.name}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative w-full sm:w-1/2">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditMaDropdownOpen(!isEditMaDropdownOpen)}
+                            className="w-full bg-[#0f172a] border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] outline-none transition-all h-[34px] font-bold text-slate-300 flex items-center justify-between text-left hover:border-slate-700 cursor-pointer"
+                          >
+                            <span className="text-slate-400">● 展開選擇武學</span>
+                            <i className={`fa-solid fa-chevron-down text-[8px] text-slate-500 transition-transform ${isEditMaDropdownOpen ? 'rotate-180' : ''}`}></i>
+                          </button>
+                          {isEditMaDropdownOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setIsEditMaDropdownOpen(false)} />
+                              <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-[#090f1d] border border-slate-800 rounded-xl shadow-2xl p-1 z-50 space-y-0.5 scrollbar-thin scrollbar-thumb-slate-800">
+                                {martialArts.map((ma, i) => {
+                                  const isSelected = editingSelectedArts.includes(ma.name);
+                                  return (
+                                    <button
+                                      key={i}
+                                      type="button"
+                                      onClick={() => {
+                                        if (isSelected) {
+                                          setEditingSelectedArts(editingSelectedArts.filter(item => item !== ma.name));
+                                          const mappedHm = getMappedHeartMethod(ma.name);
+                                          if (mappedHm) {
+                                            setEditingSelectedHms(editingSelectedHms.filter(h => h !== mappedHm));
+                                          }
+                                        } else {
+                                          setEditingSelectedArts([...editingSelectedArts, ma.name]);
+                                          
+                                          const mapping = getMappedHeartMethod(ma.name);
+                                          if (mapping && !editingSelectedHms.includes(mapping)) {
+                                            if (editingSelectedHms.length < 4) {
+                                              setEditingSelectedHms([...editingSelectedHms, mapping]);
+                                            }
+                                          }
+                                        }
+                                      }}
+                                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-[10px] font-bold transition-all ${
+                                        isSelected 
+                                          ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-extrabold' 
+                                          : 'text-slate-300 hover:bg-[#0f172a] border border-transparent hover:text-white'
+                                      }`}
+                                    >
+                                      <span className="flex items-center gap-1.5 truncate">
+                                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: ma.color || '#94a3b8' }}></span>
+                                        {ma.name}
+                                      </span>
+                                      {isSelected ? (
+                                        <i className="fa-solid fa-check text-[8px] text-blue-400"></i>
+                                      ) : (
+                                        <span className="w-2.5 h-2.5 rounded border border-slate-700 shrink-0"></span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          )}
+                        </div>
                         <div className="flex flex-wrap items-center gap-1.5 min-h-[34px] bg-[#020617]/50 border border-slate-900 rounded-xl px-2.5 py-1 w-full sm:w-1/2">
                           {editingSelectedArts.length === 0 ? (
                             <span className="text-[9px] text-slate-600 italic">尚未選擇武學</span>
@@ -1456,7 +1649,13 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
                                 <React.Fragment key={`${ma}-${i}`}>
                                   {i > 0 && <span className="text-slate-600 text-[10px] font-black">+</span>}
                                   <span
-                                    onClick={() => setEditingSelectedArts(editingSelectedArts.filter(item => item !== ma))}
+                                    onClick={() => {
+                                      setEditingSelectedArts(editingSelectedArts.filter(item => item !== ma));
+                                      const mappedHm = getMappedHeartMethod(ma);
+                                      if (mappedHm) {
+                                        setEditingSelectedHms(editingSelectedHms.filter(h => h !== mappedHm));
+                                      }
+                                    }}
                                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold bg-[#020617] border-slate-800 text-slate-300 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 cursor-pointer transition-all truncate"
                                     title="點擊刪除"
                                   >
@@ -1475,32 +1674,63 @@ export const MemberSheet: React.FC<MemberSheetProps> = ({
                     <div className="space-y-1.5">
                       <span className="text-[10px] text-slate-400 font-bold block">配戴心法 (多選，不重複)</span>
                       <div className="flex flex-col sm:flex-row gap-2 items-center">
-                        <select
-                          value=""
-                          onChange={(e) => {
-                            if (e.target.value && !editingSelectedHms.includes(e.target.value)) {
-                              if (editingSelectedHms.length >= 4) {
-                                showToast('每個搭配的心法最多只能選擇 4 個', 'warning');
-                                return;
-                              }
-                              setEditingSelectedHms([...editingSelectedHms, e.target.value]);
-                            }
-                          }}
-                          className="w-full sm:w-1/2 bg-[#0f172a] border border-slate-800 rounded-xl px-2 py-1.5 text-[11px] outline-none transition-all h-[34px] font-bold text-slate-300"
-                        >
-                          <option value="" className="bg-[#020617] text-slate-500">● 選擇心法</option>
-                          {heartMethods.filter(h => !editingSelectedHms.includes(h.name)).map((hm, i) => {
-                            let rarityColor = '#94a3b8';
-                            if (hm.rarity === 'gold') rarityColor = '#f59e0b';
-                            else if (hm.rarity === 'purple') rarityColor = '#c084fc';
-                            else if (hm.rarity === 'blue') rarityColor = '#60a5fa';
-                            return (
-                              <option key={i} value={hm.name} style={{ color: rarityColor }} className="font-bold bg-[#020617]">
-                                {hm.type ? `[${hm.type}] ` : ''}{hm.name}
-                              </option>
-                            );
-                          })}
-                        </select>
+                        <div className="relative w-full sm:w-1/2">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditHmDropdownOpen(!isEditHmDropdownOpen)}
+                            className="w-full bg-[#0f172a] border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] outline-none transition-all h-[34px] font-bold text-slate-300 flex items-center justify-between text-left hover:border-slate-700 cursor-pointer"
+                          >
+                            <span className="text-slate-400">● 展開選擇心法</span>
+                            <i className={`fa-solid fa-chevron-down text-[8px] text-slate-500 transition-transform ${isEditHmDropdownOpen ? 'rotate-180' : ''}`}></i>
+                          </button>
+                          {isEditHmDropdownOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setIsEditHmDropdownOpen(false)} />
+                              <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-[#090f1d] border border-slate-800 rounded-xl shadow-2xl p-1 z-50 space-y-0.5 scrollbar-thin scrollbar-thumb-slate-800">
+                                {heartMethods.map((hm, i) => {
+                                  const isSelected = editingSelectedHms.includes(hm.name);
+                                  let rarityColor = '#94a3b8';
+                                  if (hm.rarity === 'gold') rarityColor = '#f59e0b';
+                                  else if (hm.rarity === 'purple') rarityColor = '#c084fc';
+                                  else if (hm.rarity === 'blue') rarityColor = '#60a5fa';
+
+                                  return (
+                                    <button
+                                      key={i}
+                                      type="button"
+                                      onClick={() => {
+                                        if (isSelected) {
+                                          setEditingSelectedHms(editingSelectedHms.filter(item => item !== hm.name));
+                                        } else {
+                                          if (editingSelectedHms.length >= 4) {
+                                            showToast('每個搭配的心法最多只能選擇 4 個', 'warning');
+                                            return;
+                                          }
+                                          setEditingSelectedHms([...editingSelectedHms, hm.name]);
+                                        }
+                                      }}
+                                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-[10px] font-bold transition-all ${
+                                        isSelected
+                                          ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-extrabold'
+                                          : 'text-slate-300 hover:bg-[#0f172a] border border-transparent hover:text-white'
+                                      }`}
+                                    >
+                                      <span className="flex items-center gap-1.5 truncate" style={{ color: rarityColor }}>
+                                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: rarityColor }}></span>
+                                        {hm.type ? `[${hm.type}] ` : ''}{hm.name}
+                                      </span>
+                                      {isSelected ? (
+                                        <i className="fa-solid fa-check text-[8px] text-blue-400"></i>
+                                      ) : (
+                                        <span className="w-2.5 h-2.5 rounded border border-slate-700 shrink-0"></span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          )}
+                        </div>
                         <div className="flex flex-wrap items-center gap-1.5 min-h-[34px] bg-[#020617]/50 border border-slate-900 rounded-xl px-2.5 py-1 w-full sm:w-1/2">
                           {editingSelectedHms.length === 0 ? (
                             <span className="text-[9px] text-slate-600 italic">尚未選擇心法</span>

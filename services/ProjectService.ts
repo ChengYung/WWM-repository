@@ -238,6 +238,16 @@ export const ProjectService = {
     return setDoc(ref, cleanedMember);
   },
 
+  async updateMembers(projectId: string, membersList: Member[]) {
+    const batch = writeBatch(db);
+    membersList.forEach(m => {
+      const ref = doc(db, 'projects', projectId, 'members', m.id);
+      const cleaned = this.cleanData(m);
+      batch.set(ref, cleaned);
+    });
+    return batch.commit();
+  },
+
   async deleteMember(projectId: string, memberId: string) {
     const ref = doc(db, 'projects', projectId, 'members', memberId);
     return deleteDoc(ref);

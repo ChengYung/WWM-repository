@@ -61,6 +61,7 @@ const PlayerRow = memo(({
   player, isEditing, isNew, isFiltered, selected, onToggleSelect, onStartEdit, onEdit, onDelete, onUpdateTeam, teams, martialArts, isRestricted, members, heartMethods 
 }: PlayerRowProps) => {
   const [showAssignDropdown, setShowAssignDropdown] = useState(false);
+  const [isMaDropdownOpen, setIsMaDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const matchedMember = useMemo(() => {
@@ -223,23 +224,58 @@ const PlayerRow = memo(({
                   );
                 })}
               </div>
-              <select 
-                className="bg-[#020617] text-[10px] border border-slate-800 rounded px-1.5 py-0.5 outline-none font-bold w-full text-slate-300"
-                onChange={(e) => {
-                  if (e.target.value && !player.martialArts.includes(e.target.value)) {
-                    onEdit({ ...player, martialArts: [...player.martialArts, e.target.value] });
-                  }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                value=""
-              >
-                <option value="" className="text-slate-500">+ 新增武學</option>
-                {martialArts.filter(m => !player.martialArts.includes(m.name)).map(m => (
-                  <option key={m.name} value={m.name} style={{ color: m.color || '#94a3b8' }} className="font-bold bg-[#020617]">
-                    ● {m.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMaDropdownOpen(!isMaDropdownOpen);
+                  }}
+                  className="bg-[#020617] text-[10px] border border-slate-800 rounded px-1.5 py-1 font-bold w-full text-slate-300 flex items-center justify-between text-left hover:border-slate-700 transition-all cursor-pointer"
+                >
+                  <span className="text-slate-400">+ 多選 / 新增武學</span>
+                  <i className={`fa-solid fa-chevron-down text-[8px] text-slate-500 transition-transform ${isMaDropdownOpen ? 'rotate-180' : ''}`}></i>
+                </button>
+                {isMaDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setIsMaDropdownOpen(false); }} />
+                    <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-[#090f1d] border border-slate-800 rounded-lg shadow-2xl p-1 z-50 space-y-0.5 scrollbar-thin scrollbar-thumb-slate-800">
+                      {martialArts.map((ma, i) => {
+                        const isSelected = player.martialArts.includes(ma.name);
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isSelected) {
+                                onEdit({ ...player, martialArts: player.martialArts.filter(item => item !== ma.name) });
+                              } else {
+                                onEdit({ ...player, martialArts: [...player.martialArts, ma.name] });
+                              }
+                            }}
+                            className={`w-full flex items-center justify-between px-2 py-1 rounded text-left text-[10px] font-bold transition-all ${
+                              isSelected 
+                                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 font-extrabold' 
+                                : 'text-slate-300 hover:bg-[#0f172a] border border-transparent hover:text-white'
+                            }`}
+                          >
+                            <span className="flex items-center gap-1.5 truncate">
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: ma.color || '#94a3b8' }}></span>
+                              {ma.name}
+                            </span>
+                            {isSelected ? (
+                              <i className="fa-solid fa-check text-[8px] text-blue-400"></i>
+                            ) : (
+                              <span className="w-2.5 h-2.5 rounded border border-slate-700 shrink-0"></span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             {(() => {
@@ -1339,9 +1375,9 @@ export const RegistrationList: React.FC<RegistrationListProps> = ({
               </div>
             )}
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-350 transition-colors">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-400 hover:text-amber-300 transition-colors animate-pulse">
             <span>{isToolbarExpanded ? '點擊收合' : '點擊展開篩選'}</span>
-            <i className={`fa-solid ${isToolbarExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-slate-400 transition-transform duration-200`}></i>
+            <i className={`fa-solid ${isToolbarExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-amber-400 transition-transform duration-200`} />
           </div>
         </div>
 
